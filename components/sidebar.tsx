@@ -240,7 +240,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       {/* Logo and collapse button */}
       <div className="flex items-center justify-between p-4 border-b h-14">
         <div className="flex items-center">
-          <span className="font-bold text-primary text-xl">{collapsed ? "CMS" : "Client Management"}</span>
+          <span className="font-bold text-primary text-xl">{collapsed ? "Bilog" : "Team Hotel"}</span>
         </div>
         {!isMobile && (
           <Button variant="ghost" size="icon" onClick={() => setCollapsed(!collapsed)} className="ml-auto">
