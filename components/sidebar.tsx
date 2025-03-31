@@ -17,8 +17,6 @@ import {
   ArrowDownCircle,
   Settings,
   LogOut,
-  ChevronLeft,
-  ChevronRight,
   User,
   BarChart3,
   Shield,
@@ -229,71 +227,55 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     )
   }
 
-  // Desktop sidebar
+  // Desktop sidebar - always expanded
   return (
-    <div
-      className={cn(
-        "h-screen fixed left-0 top-0 z-40 flex flex-col bg-background border-r transition-all duration-200 ease-out",
-        collapsed ? "w-16" : "w-64",
-      )}
-    >
-      {/* Logo and collapse button */}
+    <div className="h-screen fixed left-0 top-0 z-40 flex flex-col bg-background border-r w-64">
+      {/* Logo */}
       <div className="flex items-center justify-between p-4 border-b h-14">
         <div className="flex items-center">
-          <span className="font-bold text-primary text-xl">{collapsed ? "Bilog" : "Team Hotel"}</span>
+          <span className="font-bold text-primary text-xl">Client Management</span>
         </div>
-        {!isMobile && (
-          <Button variant="ghost" size="icon" onClick={() => setCollapsed(!collapsed)} className="ml-auto">
-            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          </Button>
-        )}
       </div>
 
       {/* User info */}
-      <div className={cn("flex items-center p-4 border-b", collapsed ? "justify-center" : "")}>
+      <div className="flex items-center p-4 border-b">
         <Avatar className="h-10 w-10">{getAvatarContent()}</Avatar>
-        {!collapsed && (
-          <div className="ml-3">
-            <p className="font-medium">{user?.username}</p>
-            <p className="text-xs text-muted-foreground">{user?.role}</p>
-          </div>
-        )}
+        <div className="ml-3">
+          <p className="font-medium">{user?.username}</p>
+          <p className="text-xs text-muted-foreground">{user?.role}</p>
+        </div>
       </div>
 
       {/* Navigation */}
-      <nav
-        className="flex-1 overflow-y-auto py-4"
-        onMouseEnter={() => !isMobile && setCollapsed(false)}
-        onMouseLeave={() => !isMobile && setCollapsed(true)}
-      >
+      <nav className="flex-1 overflow-y-auto py-4">
         <TooltipProvider>
           <ul className="space-y-1 px-2">
             <NavItem
               icon={<Home className="h-5 w-5" />}
               label="Dashboard"
               active={activeTab === "dashboard"}
-              collapsed={collapsed}
+              collapsed={false}
               onClick={() => navigateTo("dashboard")}
             />
             <NavItem
               icon={<Users className="h-5 w-5" />}
               label="Clients"
               active={activeTab === "clients"}
-              collapsed={collapsed}
+              collapsed={false}
               onClick={() => navigateTo("clients")}
             />
             <NavItem
               icon={<ShoppingBag className="h-5 w-5" />}
               label="Orders"
               active={activeTab === "orders"}
-              collapsed={collapsed}
+              collapsed={false}
               onClick={() => navigateTo("orders")}
             />
             <NavItem
               icon={<FileText className="h-5 w-5" />}
               label="Order Requests"
               active={activeTab === "order-requests"}
-              collapsed={collapsed}
+              collapsed={false}
               onClick={() => navigateTo("order-requests")}
               badge={<span className="bg-gray-700 text-white text-xs px-1 rounded">New</span>}
             />
@@ -301,21 +283,21 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
               icon={<Wallet className="h-5 w-5" />}
               label="Deposits"
               active={activeTab === "deposits"}
-              collapsed={collapsed}
+              collapsed={false}
               onClick={() => navigateTo("deposits")}
             />
             <NavItem
               icon={<ArrowDownCircle className="h-5 w-5" />}
               label="Withdrawals"
               active={activeTab === "withdrawals"}
-              collapsed={collapsed}
+              collapsed={false}
               onClick={() => navigateTo("withdrawals")}
             />
             <NavItem
               icon={<BarChart3 className="h-5 w-5" />}
               label="Team Performance"
               active={activeTab === "team"}
-              collapsed={collapsed}
+              collapsed={false}
               onClick={() => navigateTo("team")}
             />
             {!isViewer && (
@@ -323,7 +305,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                 icon={<Settings className="h-5 w-5" />}
                 label="Settings"
                 active={activeTab === "settings"}
-                collapsed={collapsed}
+                collapsed={false}
                 onClick={() => navigateTo("settings")}
               />
             )}
@@ -332,31 +314,17 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className={cn("p-4 border-t", collapsed ? "flex justify-center" : "")}>
-        <div className={cn("flex items-center", collapsed ? "flex-col space-y-4" : "justify-between")}>
-          {!collapsed && (
-            <div className="flex items-center gap-2">
-              <OfflineDetector />
-              <NotificationCenter />
-            </div>
-          )}
+      <div className="p-4 border-t">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <OfflineDetector />
+            <NotificationCenter />
+          </div>
           <ModeToggle />
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size={collapsed ? "icon" : "default"}
-                  onClick={handleLogout}
-                  className={collapsed ? "mt-4" : ""}
-                >
-                  <LogOut className={cn("h-5 w-5", !collapsed && "mr-2")} />
-                  {!collapsed && "Logout"}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Logout</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Button variant="ghost" size="default" onClick={handleLogout}>
+            <LogOut className="h-5 w-5 mr-2" />
+            Logout
+          </Button>
         </div>
       </div>
     </div>

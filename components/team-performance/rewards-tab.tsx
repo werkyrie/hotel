@@ -12,7 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
-import { Trash2, CalendarIcon, FileDown } from "lucide-react"
+// Add import for PlusCircle icon
+import { Trash2, CalendarIcon, FileDown, PlusCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
@@ -28,7 +29,10 @@ export default function RewardsTab() {
   const [amount, setAmount] = useState(0)
   const [date, setDate] = useState<Date | undefined>(new Date())
   const [status, setStatus] = useState<"Received" | "Pending" | "Cancelled">("Pending")
+  // Add a state variable to control form visibility
+  const [showForm, setShowForm] = useState(false)
 
+  // Modify the handleAddReward function to prevent duplicates
   const handleAddReward = () => {
     if (!selectedAgentId) {
       toast({
@@ -75,6 +79,8 @@ export default function RewardsTab() {
     setAmount(0)
     setDate(new Date())
     setStatus("Pending")
+    // Hide form after submission
+    setShowForm(false)
 
     toast({
       title: "Reward Added",
@@ -141,10 +147,21 @@ export default function RewardsTab() {
     })
   }
 
+  // Replace the form card with this updated version that includes a toggle button
   return (
     <div className="space-y-6">
-      {/* Only show the add reward form for non-viewers */}
+      {/* Only show the add reward button for non-viewers */}
       {!isViewer && (
+        <div className="flex justify-end mb-4">
+          <Button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2">
+            {showForm ? "Cancel" : "Add New Reward"}
+            {!showForm && <PlusCircle className="h-4 w-4" />}
+          </Button>
+        </div>
+      )}
+
+      {/* Only show the add reward form for non-viewers and when showForm is true */}
+      {!isViewer && showForm && (
         <Card className="animate-fade-in shadow-sm hover:shadow-md transition-all duration-300">
           <CardHeader>
             <CardTitle>Add New Reward</CardTitle>

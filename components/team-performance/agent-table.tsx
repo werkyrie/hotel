@@ -10,10 +10,23 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { Trash2, ChevronDown, ChevronUp, MoreHorizontal, Search, UserPlus, FileDown, Upload } from "lucide-react"
+import {
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  MoreHorizontal,
+  Search,
+  UserPlus,
+  FileDown,
+  Upload,
+  Edit,
+  Check,
+  X,
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import AgentRegistrationModal from "./agent-registration-modal"
 import AgentImportModal from "./agent-import-modal"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 export default function AgentTable() {
   const { agents, updateAgent, deleteAgent } = useTeamContext()
@@ -79,10 +92,17 @@ export default function AgentTable() {
     }
   }
 
-  // Handle cell double click for inline editing
-  const handleCellDoubleClick = (agentId: string, field: string, value: string | number) => {
-    // Allow Viewers to edit these specific fields
-    if (field === "name" || field === "addedToday" || field === "monthlyAdded" || field === "openAccounts") {
+  // Handle cell edit click
+  const handleCellEditClick = (agentId: string, field: string, value: string | number) => {
+    // Define which fields are editable based on user role
+    const isEditable =
+      // For viewers: only these specific fields are editable
+      (isViewer && (field === "addedToday" || field === "monthlyAdded" || field === "openAccounts")) ||
+      // For non-viewers (admins/editors): all these fields are editable
+      (!isViewer &&
+        (field === "name" || field === "addedToday" || field === "monthlyAdded" || field === "openAccounts"))
+
+    if (isEditable) {
       setEditingCell({ agentId, field })
       setEditValue(value)
     }
@@ -124,13 +144,18 @@ export default function AgentTable() {
     })
   }
 
+  // Handle cancel edit
+  const handleCancelEdit = () => {
+    setEditingCell(null)
+    setEditValue("")
+  }
+
   // Handle key press in editable cell
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleCellEditSave()
     } else if (e.key === "Escape") {
-      setEditingCell(null)
-      setEditValue("")
+      handleCancelEdit()
     }
   }
 
@@ -223,6 +248,78 @@ export default function AgentTable() {
     })
   }
 
+  // Render editable cell content
+  const renderEditableCell = (agent: any, field: string, value: string | number) => {
+    const isEditing = editingCell?.agentId === agent.id && editingCell.field === field
+
+    // Define which fields are editable based on user role
+    const isEditable =
+      // For viewers: only these specific fields are editable
+      (isViewer && (field === "addedToday" || field === "monthlyAdded" || field === "openAccounts")) ||
+      // For non-viewers (admins/editors): all these fields are editable
+      (!isViewer &&
+        (field === "name" || field === "addedToday" || field === "monthlyAdded" || field === "openAccounts"))
+
+    if (isEditing) {
+      return (
+        <div className="flex items-center gap-2 justify-center">
+          <Input
+            ref={inputRef}
+            type={field === "name" ? "text" : "number"}
+            min={field !== "name" ? "0" : undefined}
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={handleKeyPress}
+            className="editable-cell-input text-center"
+          />
+          <div className="flex items-center">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleCellEditSave}
+              className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-100"
+            >
+              <Check className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleCancelEdit}
+              className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-100"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="flex items-center justify-center group">
+        <span className={field === "name" ? "font-medium" : ""}>{field === "name" ? value : value}</span>
+        {isEditable && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleCellEditClick(agent.id, field, value)}
+                  className="h-7 w-7 opacity-100 ml-2"
+                >
+                  <Edit className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Edit {field.replace(/([A-Z])/g, " $1").toLowerCase()}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -271,11 +368,31 @@ export default function AgentTable() {
         </div>
       </div>
 
+      {!isViewer ? (
+        <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-amber-800 text-sm mb-4">
+          <p className="flex items-center">
+            <Edit className="h-4 w-4 mr-2" />
+            <span>
+              <strong>Pro tip:</strong> Hover over cells to see edit buttons. Click the edit icon to modify values.
+            </span>
+          </p>
+        </div>
+      ) : (
+        <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-amber-800 text-sm mb-4">
+          <p className="flex items-center">
+            <Edit className="h-4 w-4 mr-2" />
+            <span>
+              <strong>Pro tip:</strong> As a viewer, you can edit Added Today, Monthly Added, and Open Accounts fields.
+            </span>
+          </p>
+        </div>
+      )}
+
       <div className="rounded-md border shadow-sm overflow-x-auto bg-card animate-fade-in">
         <Table>
           <TableHeader className="sticky top-0 bg-background">
             <TableRow className="bg-muted/50">
-              <TableHead className="cursor-pointer font-medium" onClick={() => handleSort("name")}>
+              <TableHead className="cursor-pointer font-medium text-center" onClick={() => handleSort("name")}>
                 Agent Name
                 {sortField === "name" &&
                   (sortDirection === "asc" ? (
@@ -284,7 +401,7 @@ export default function AgentTable() {
                     <ChevronDown className="ml-1 h-4 w-4 inline" />
                   ))}
               </TableHead>
-              <TableHead className="cursor-pointer font-medium" onClick={() => handleSort("addedToday")}>
+              <TableHead className="cursor-pointer font-medium text-center" onClick={() => handleSort("addedToday")}>
                 Added Today
                 {sortField === "addedToday" &&
                   (sortDirection === "asc" ? (
@@ -293,7 +410,7 @@ export default function AgentTable() {
                     <ChevronDown className="ml-1 h-4 w-4 inline" />
                   ))}
               </TableHead>
-              <TableHead className="cursor-pointer font-medium" onClick={() => handleSort("monthlyAdded")}>
+              <TableHead className="cursor-pointer font-medium text-center" onClick={() => handleSort("monthlyAdded")}>
                 Monthly Added
                 {sortField === "monthlyAdded" &&
                   (sortDirection === "asc" ? (
@@ -302,7 +419,7 @@ export default function AgentTable() {
                     <ChevronDown className="ml-1 h-4 w-4 inline" />
                   ))}
               </TableHead>
-              <TableHead className="cursor-pointer font-medium" onClick={() => handleSort("openAccounts")}>
+              <TableHead className="cursor-pointer font-medium text-center" onClick={() => handleSort("openAccounts")}>
                 Open Accounts
                 {sortField === "openAccounts" &&
                   (sortDirection === "asc" ? (
@@ -311,7 +428,7 @@ export default function AgentTable() {
                     <ChevronDown className="ml-1 h-4 w-4 inline" />
                   ))}
               </TableHead>
-              <TableHead className="cursor-pointer font-medium" onClick={() => handleSort("totalDeposits")}>
+              <TableHead className="cursor-pointer font-medium text-center" onClick={() => handleSort("totalDeposits")}>
                 Total Deposits
                 {sortField === "totalDeposits" &&
                   (sortDirection === "asc" ? (
@@ -320,7 +437,10 @@ export default function AgentTable() {
                     <ChevronDown className="ml-1 h-4 w-4 inline" />
                   ))}
               </TableHead>
-              <TableHead className="cursor-pointer font-medium" onClick={() => handleSort("commissionRate")}>
+              <TableHead
+                className="cursor-pointer font-medium text-center"
+                onClick={() => handleSort("commissionRate")}
+              >
                 Commission
                 {sortField === "commissionRate" &&
                   (sortDirection === "asc" ? (
@@ -329,7 +449,7 @@ export default function AgentTable() {
                     <ChevronDown className="ml-1 h-4 w-4 inline" />
                   ))}
               </TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -339,104 +459,46 @@ export default function AgentTable() {
                   key={agent.id}
                   className={`agent-row hover:bg-muted/30 transition-colors ${editingCell?.agentId === agent.id ? "editing bg-muted/20" : ""}`}
                 >
-                  <TableCell
-                    className="editable-cell"
-                    onDoubleClick={() => handleCellDoubleClick(agent.id, "name", agent.name)}
-                  >
-                    {editingCell?.agentId === agent.id && editingCell.field === "name" ? (
-                      <Input
-                        ref={inputRef}
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={handleCellEditSave}
-                        onKeyDown={handleKeyPress}
-                        className="editable-cell-input"
-                      />
-                    ) : (
-                      <span className="font-medium">{agent.name}</span>
-                    )}
+                  <TableCell className="editable-cell text-center">
+                    {renderEditableCell(agent, "name", agent.name)}
                   </TableCell>
-                  <TableCell
-                    className="editable-cell"
-                    onDoubleClick={() => handleCellDoubleClick(agent.id, "addedToday", agent.addedToday)}
-                  >
-                    {editingCell?.agentId === agent.id && editingCell.field === "addedToday" ? (
-                      <Input
-                        ref={inputRef}
-                        type="number"
-                        min="0"
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={handleCellEditSave}
-                        onKeyDown={handleKeyPress}
-                        className="editable-cell-input"
-                      />
-                    ) : (
-                      agent.addedToday
-                    )}
+                  <TableCell className="editable-cell text-center">
+                    {renderEditableCell(agent, "addedToday", agent.addedToday)}
                   </TableCell>
-                  <TableCell
-                    className="editable-cell"
-                    onDoubleClick={() => handleCellDoubleClick(agent.id, "monthlyAdded", agent.monthlyAdded)}
-                  >
-                    {editingCell?.agentId === agent.id && editingCell.field === "monthlyAdded" ? (
-                      <Input
-                        ref={inputRef}
-                        type="number"
-                        min="0"
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={handleCellEditSave}
-                        onKeyDown={handleKeyPress}
-                        className="editable-cell-input"
-                      />
-                    ) : (
-                      agent.monthlyAdded
-                    )}
+                  <TableCell className="editable-cell text-center">
+                    {renderEditableCell(agent, "monthlyAdded", agent.monthlyAdded)}
                   </TableCell>
-                  <TableCell
-                    className="editable-cell"
-                    onDoubleClick={() => handleCellDoubleClick(agent.id, "openAccounts", agent.openAccounts)}
-                  >
-                    {editingCell?.agentId === agent.id && editingCell.field === "openAccounts" ? (
-                      <Input
-                        ref={inputRef}
-                        type="number"
-                        min="0"
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={handleCellEditSave}
-                        onKeyDown={handleKeyPress}
-                        className="editable-cell-input"
-                      />
-                    ) : (
-                      agent.openAccounts
-                    )}
+                  <TableCell className="editable-cell text-center">
+                    {renderEditableCell(agent, "openAccounts", agent.openAccounts)}
                   </TableCell>
-                  <TableCell className={isViewer ? "" : "editable-cell"}>
+                  <TableCell className={`${isViewer ? "" : "editable-cell"} text-center`}>
                     <span className="font-medium">${agent.totalDeposits.toLocaleString()}</span>
                   </TableCell>
-                  <TableCell>
-                    <Badge className={`${getCommissionTierClass(agent.commissionRate || 0)} transition-all`}>
-                      {agent.commissionRate}% (${agent.commission?.toLocaleString()})
-                    </Badge>
+                  <TableCell className="text-center">
+                    <div className="flex justify-center">
+                      <Badge className={`${getCommissionTierClass(agent.commissionRate || 0)} transition-all`}>
+                        {agent.commissionRate}% (${agent.commission?.toLocaleString()})
+                      </Badge>
+                    </div>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-center">
                     {!isViewer && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="hover:bg-muted transition-colors">
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Open menu</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleDeleteAgent(agent.id, agent.name)}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="flex justify-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="hover:bg-muted transition-colors">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Open menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleDeleteAgent(agent.id, agent.name)}>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     )}
                   </TableCell>
                 </TableRow>

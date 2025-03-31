@@ -442,8 +442,8 @@ export function TeamProvider({ children }: { children: ReactNode }) {
       const newAttendance = { ...attendance, id: docRef.id } as Attendance
       setAttendance((prev) => [...prev, newAttendance])
 
-      // Backup to localStorage
-      localStorage.setItem("attendance", JSON.stringify([...attendance, newAttendance]))
+      // Backup to localStorage - Fix the localStorage key to avoid confusion
+      localStorage.setItem("attendanceRecords", JSON.stringify([...attendance, newAttendance]))
     } catch (error) {
       console.error("Error adding attendance:", error)
 
@@ -453,7 +453,7 @@ export function TeamProvider({ children }: { children: ReactNode }) {
         id: Math.random().toString(36).substring(2, 9),
       }
       setAttendance((prev) => [...prev, newAttendance])
-      localStorage.setItem("attendance", JSON.stringify([...attendance, newAttendance]))
+      localStorage.setItem("attendanceRecords", JSON.stringify([...attendance, newAttendance]))
     }
   }
 

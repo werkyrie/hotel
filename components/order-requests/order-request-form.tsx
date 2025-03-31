@@ -37,7 +37,7 @@ export default function OrderRequestForm() {
   const [agent, setAgent] = useState("")
   const [date, setDate] = useState<Date | undefined>(new Date())
   const [location, setLocation] = useState("")
-  const [price, setPrice] = useState<number>(0)
+  const [price, setPrice] = useState<number | string>("") // Change to string or number
   const [remarks, setRemarks] = useState("")
 
   // Search and filter state
@@ -119,7 +119,9 @@ export default function OrderRequestForm() {
 
   // Validate price
   const validatePrice = () => {
-    if (!price || price <= 0) {
+    const numericPrice = typeof price === "string" ? Number.parseFloat(price) : price
+
+    if (!price || isNaN(numericPrice) || numericPrice <= 0) {
       setPriceError("Price must be greater than 0")
       return false
     }
@@ -141,6 +143,9 @@ export default function OrderRequestForm() {
       return
     }
 
+    // Convert price to number for submission
+    const numericPrice = typeof price === "string" ? Number.parseFloat(price) : price
+
     // Create order request
     addOrderRequest({
       shopId,
@@ -148,7 +153,7 @@ export default function OrderRequestForm() {
       agent,
       date: date ? format(date, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
       location,
-      price,
+      price: numericPrice,
       remarks,
     })
 
@@ -158,7 +163,7 @@ export default function OrderRequestForm() {
     setAgent("")
     setDate(new Date())
     setLocation("")
-    setPrice(0)
+    setPrice("")
     setRemarks("")
     setSearchTerm("")
 
@@ -319,7 +324,16 @@ export default function OrderRequestForm() {
                 min="0"
                 step="0.01"
                 value={price}
-                onChange={(e) => setPrice(Number(e.target.value))}
+                onChange={(e) => {
+                  // Remove leading zeros and convert to number or empty string
+                  const value = e.target.value
+                  if (value === "") {
+                    setPrice("")
+                  } else {
+                    // Parse as float to remove leading zeros
+                    setPrice(Number.parseFloat(value))
+                  }
+                }}
                 placeholder="Enter price"
                 className={priceError ? "border-red-500" : ""}
               />

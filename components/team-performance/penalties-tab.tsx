@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { format } from "date-fns"
-import { Trash2, CalendarIcon, FileDown } from "lucide-react"
+import { Trash2, CalendarIcon, FileDown, PlusCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
@@ -27,6 +27,10 @@ export default function PenaltiesTab() {
   const [amount, setAmount] = useState(0)
   const [date, setDate] = useState<Date | undefined>(new Date())
 
+  // Add a state variable to control form visibility
+  const [showForm, setShowForm] = useState(false)
+
+  // Modify the handleAddPenalty function to prevent duplicates
   const handleAddPenalty = () => {
     if (!selectedAgentId) {
       toast({
@@ -71,6 +75,8 @@ export default function PenaltiesTab() {
     setDescription("")
     setAmount(0)
     setDate(new Date())
+    // Hide form after submission
+    setShowForm(false)
 
     toast({
       title: "Penalty Added",
@@ -117,10 +123,21 @@ export default function PenaltiesTab() {
     })
   }
 
+  // Replace the form card with this updated version that includes a toggle button
   return (
     <div className="space-y-6">
-      {/* Only show the add penalty form for non-viewers */}
+      {/* Only show the add penalty button for non-viewers */}
       {!isViewer && (
+        <div className="flex justify-end mb-4">
+          <Button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2">
+            {showForm ? "Cancel" : "Add New Penalty"}
+            {!showForm && <PlusCircle className="h-4 w-4" />}
+          </Button>
+        </div>
+      )}
+
+      {/* Only show the add penalty form for non-viewers and when showForm is true */}
+      {!isViewer && showForm && (
         <Card className="animate-fade-in shadow-sm hover:shadow-md transition-all duration-300">
           <CardHeader>
             <CardTitle>Add New Penalty</CardTitle>

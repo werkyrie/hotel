@@ -11,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
-import { Trash2, CalendarIcon, FileDown } from "lucide-react"
+// Add import for PlusCircle icon
+import { Trash2, CalendarIcon, FileDown, PlusCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
@@ -26,7 +27,10 @@ export default function AttendanceTab() {
   const [remarks, setRemarks] = useState("")
   const [date, setDate] = useState<Date | undefined>(new Date())
   const [status, setStatus] = useState<"Whole Day" | "Half Day" | "Leave" | "Undertime">("Whole Day")
+  // Add a state variable to control form visibility
+  const [showForm, setShowForm] = useState(false)
 
+  // Modify the handleAddAttendance function to prevent duplicates
   const handleAddAttendance = () => {
     if (!selectedAgentId) {
       toast({
@@ -51,7 +55,7 @@ export default function AttendanceTab() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: `Attendance for ${selectedAgent.name} on this date already exists`,
+        description: `Absence for ${selectedAgent.name} on this date already exists`,
       })
       return
     }
@@ -69,19 +73,21 @@ export default function AttendanceTab() {
     setRemarks("")
     setDate(new Date())
     setStatus("Whole Day")
+    // Hide form after submission
+    setShowForm(false)
 
     toast({
-      title: "Attendance Added",
-      description: `Attendance has been recorded for ${selectedAgent.name}`,
+      title: "Absence Added",
+      description: `Absence has been recorded for ${selectedAgent.name}`,
     })
   }
 
   const handleDeleteAttendance = (id: string, agentName: string) => {
-    if (confirm(`Are you sure you want to delete this attendance record for ${agentName}?`)) {
+    if (confirm(`Are you sure you want to delete this absence record for ${agentName}?`)) {
       deleteAttendance(id)
       toast({
-        title: "Attendance Deleted",
-        description: `Attendance for ${agentName} has been removed`,
+        title: "Absence Deleted",
+        description: `Absence for ${agentName} has been removed`,
       })
     }
   }
@@ -119,7 +125,7 @@ export default function AttendanceTab() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.setAttribute("href", url)
-    link.setAttribute("download", "attendance.csv")
+    link.setAttribute("download", "absences.csv")
     link.style.visibility = "hidden"
     document.body.appendChild(link)
     link.click()
@@ -127,17 +133,28 @@ export default function AttendanceTab() {
 
     toast({
       title: "Export Successful",
-      description: "Attendance data has been exported to CSV",
+      description: "Absences data has been exported to CSV",
     })
   }
 
+  // Replace the form card with this updated version that includes a toggle button
   return (
     <div className="space-y-6">
-      {/* Only show the add attendance form for non-viewers */}
+      {/* Only show the add attendance button for non-viewers */}
       {!isViewer && (
+        <div className="flex justify-end mb-4">
+          <Button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2">
+            {showForm ? "Cancel" : "Add Absence"}
+            {!showForm && <PlusCircle className="h-4 w-4" />}
+          </Button>
+        </div>
+      )}
+
+      {/* Only show the add attendance form for non-viewers and when showForm is true */}
+      {!isViewer && showForm && (
         <Card className="animate-fade-in shadow-sm hover:shadow-md transition-all duration-300">
           <CardHeader>
-            <CardTitle>Add Attendance Record</CardTitle>
+            <CardTitle>Add Absent Record</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -206,7 +223,7 @@ export default function AttendanceTab() {
 
               <div className="md:col-span-2">
                 <Button onClick={handleAddAttendance} className="w-full">
-                  Add Attendance Record
+                  Add Absent Record
                 </Button>
               </div>
             </div>
@@ -217,7 +234,7 @@ export default function AttendanceTab() {
       <Card className="animate-fade-in shadow-sm">
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle>Attendance Records</CardTitle>
+            <CardTitle>Absence Records</CardTitle>
             <Button variant="outline" size="sm" onClick={handleExportCsv}>
               <FileDown className="h-4 w-4 mr-2" />
               Export CSV
@@ -264,7 +281,7 @@ export default function AttendanceTab() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={isViewer ? 4 : 5} className="text-center py-8 text-muted-foreground">
-                      No attendance records found
+                      No absence records found
                     </TableCell>
                   </TableRow>
                 )}
