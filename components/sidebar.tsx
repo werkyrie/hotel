@@ -233,7 +233,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       {/* Logo */}
       <div className="flex items-center justify-between p-4 border-b h-14">
         <div className="flex items-center">
-          <span className="font-bold text-primary text-xl">Client Management</span>
+          <span className="font-bold text-primary text-xl">Team Hotel</span>
         </div>
       </div>
 
