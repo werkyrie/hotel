@@ -19,8 +19,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, FileUp, Upload, X } from "lucide-react"
-import { format } from "date-fns"
+import { AlertCircle, FileUp, Upload, X, CheckCircle } from "lucide-react"
+import { format, parse } from "date-fns"
 import { Progress } from "@/components/ui/progress"
 
 interface BulkDepositModalProps {
@@ -73,6 +73,7 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
       setIsProcessing(true)
       setProgress(0)
       setError("")
+      setSuccess(false)
 
       // Parse CSV data
       const lines = csvData.trim().split("\n")
@@ -115,14 +116,18 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
             continue
           }
 
-          // Validate and parse date
-          let depositDate = values[dateIndex]
+          // Validate and parse date (MM/DD/YYYY format)
+          let depositDate
           try {
-            // Try to parse and format the date
-            const parsedDate = new Date(depositDate)
+            // Try to parse MM/DD/YYYY format
+            const dateValue = values[dateIndex]
+            const parsedDate = parse(dateValue, "MM/dd/yyyy", new Date())
+            
             if (isNaN(parsedDate.getTime())) {
+              // Fallback to today if parsing fails
               depositDate = format(new Date(), "yyyy-MM-dd")
             } else {
+              // Convert to ISO format for storage
               depositDate = format(parsedDate, "yyyy-MM-dd")
             }
           } catch (e) {
@@ -169,7 +174,7 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
 
       setSuccessCount(successCount)
       setErrorCount(errorCount)
-      setSuccess(true)
+      setSuccess(successCount > 0)
       setIsProcessing(false)
 
       if (successCount > 0) {
@@ -222,7 +227,10 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
               </Button>
             </div>
           ) : (
-            <div className="file-upload-area flex items-center justify-center" onClick={handleClickUpload}>
+            <div 
+              className="file-upload-area flex items-center justify-center p-8 border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/30 transition-colors" 
+              onClick={handleClickUpload}
+            >
               <div className="text-center">
                 <FileUp className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
                 <p className="text-sm font-medium mb-1">Click to upload a CSV file</p>
@@ -243,7 +251,8 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
             />
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">CSV format: shop id,date,amount,payment mode</p>
-              <p className="text-xs text-muted-foreground">Example: SHOP001,2023-01-01,500.00,Crypto</p>
+              <p className="text-xs text-muted-foreground">Date format must be MM/DD/YYYY (e.g., 03/15/2025)</p>
+              <p className="text-xs text-muted-foreground">Example: SHOP001,03/15/2025,500.00,Crypto</p>
             </div>
           </div>
 
@@ -258,17 +267,17 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
           )}
 
           {error && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="border-red-500 bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
+              <AlertTitle>Import Failed</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
           {success && (
             <Alert className="bg-green-50 border-green-500 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Success</AlertTitle>
+              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertTitle>Import Successful</AlertTitle>
               <AlertDescription>
                 Successfully imported {successCount} deposits.
                 {errorCount > 0 && ` ${errorCount} deposits had errors and were skipped.`}
@@ -281,7 +290,11 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
           <Button variant="outline" onClick={onClose} disabled={isProcessing}>
             Cancel
           </Button>
-          <Button onClick={handleImport} disabled={isProcessing || !csvData.trim()} className="btn-primary">
+          <Button 
+            onClick={handleImport} 
+            disabled={isProcessing || !csvData.trim()} 
+            className="btn-primary"
+          >
             <Upload className="mr-2 h-4 w-4" />
             {isProcessing ? "Importing..." : "Import Deposits"}
           </Button>
@@ -290,4 +303,3 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
     </Dialog>
   )
 }
-
