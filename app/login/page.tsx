@@ -111,14 +111,14 @@ export default function LoginPage() {
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden p-4">
         {/* Background gradient and pattern */}
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 z-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-800 to-gray-900 z-0">
           <div className="absolute inset-0 bg-grid-white/[0.05] bg-[length:20px_20px]" />
           <div className="absolute inset-0 backdrop-blur-[100px]" />
 
           {/* Animated background blobs */}
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob" />
-          <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-indigo-500 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
-          <div className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000" />
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gray-500 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob" />
+          <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-gray-700 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
+          <div className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-gray-600 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000" />
         </div>
 
         {mounted && (
@@ -167,7 +167,7 @@ export default function LoginPage() {
                   }}
                   className="flex justify-center mb-4"
                 >
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-700 to-black flex items-center justify-center shadow-lg">
                     <Fingerprint className="h-8 w-8 text-white" />
                   </div>
                 </motion.div>
@@ -223,7 +223,7 @@ export default function LoginPage() {
                       </Label>
                       <Button
                         variant="link"
-                        className="p-0 h-auto text-xs text-purple-200 hover:text-white"
+                        className="p-0 h-auto text-xs text-gray-300 hover:text-white"
                         type="button"
                       >
                         Forgot password?
@@ -245,7 +245,7 @@ export default function LoginPage() {
                   <motion.div variants={buttonVariants} whileHover="hover">
                     <Button
                       type="submit"
-                      className="w-full py-6 text-base font-medium bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white transition-all duration-300 rounded-xl shadow-lg hover:shadow-purple-500/40 group"
+                      className="w-full py-6 text-base font-medium bg-gradient-to-r from-gray-700 via-gray-800 to-black hover:from-gray-800 hover:via-gray-900 hover:to-black text-white transition-all duration-300 rounded-xl shadow-lg hover:shadow-black/40 group"
                       disabled={isLoading}
                     >
                       {isLoading ? (

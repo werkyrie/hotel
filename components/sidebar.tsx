@@ -103,7 +103,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       )
     } else if (isViewer) {
       return (
-        <AvatarFallback className="bg-blue-500 text-white">
+        <AvatarFallback className="bg-gray-700 text-white">
           <User className="h-5 w-5" />
         </AvatarFallback>
       )
@@ -176,7 +176,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                       label="Order Requests"
                       active={activeTab === "order-requests"}
                       onClick={() => navigateTo("order-requests")}
-                      badge={<span className="bg-blue-500 text-white text-xs px-1 rounded">New</span>}
+                      badge={<span className="bg-gray-700 text-white text-xs px-1 rounded">New</span>}
                     />
                     <MobileNavItem
                       icon={<Wallet className="h-5 w-5" />}
@@ -211,7 +211,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                 <div className="p-4 border-t">
                   <Button
                     variant="default"
-                    className="w-full justify-start bg-primary hover:bg-primary/90"
+                    className="w-full justify-start bg-gray-800 hover:bg-gray-700 text-white"
                     onClick={handleLogout}
                   >
                     <LogOut className="h-5 w-5 mr-2" />
@@ -295,7 +295,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
               active={activeTab === "order-requests"}
               collapsed={collapsed}
               onClick={() => navigateTo("order-requests")}
-              badge={<span className="bg-blue-500 text-white text-xs px-1 rounded">New</span>}
+              badge={<span className="bg-gray-700 text-white text-xs px-1 rounded">New</span>}
             />
             <NavItem
               icon={<Wallet className="h-5 w-5" />}
@@ -382,7 +382,7 @@ function NavItem({ icon, label, active, collapsed, onClick, badge }: NavItemProp
               variant={active ? "default" : "ghost"}
               className={cn(
                 "w-full justify-start transition-all duration-200",
-                active && "bg-primary text-primary-foreground",
+                active && "bg-gray-800 text-white",
                 collapsed && "justify-center p-2",
               )}
               onClick={onClick}
@@ -417,7 +417,7 @@ function MobileNavItem({ icon, label, active, onClick, badge }: MobileNavItemPro
     <li>
       <Button
         variant={active ? "default" : "ghost"}
-        className={cn("w-full justify-start", active && "bg-primary text-primary-foreground")}
+        className={cn("w-full justify-start", active && "bg-gray-800 text-white")}
         onClick={onClick}
       >
         {icon}

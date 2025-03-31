@@ -131,7 +131,10 @@ export default function NavBar({ activeTab, setActiveTab }: NavBarProps) {
             variant={activeTab === "dashboard" ? "default" : "ghost"}
             size="sm"
             onClick={() => navigateTo("dashboard")}
-            className={cn("flex items-center", activeTab === "dashboard" && "bg-primary text-primary-foreground")}
+            className={cn(
+              "flex items-center font-medium",
+              activeTab === "dashboard" && "bg-gray-800 text-white hover:bg-gray-700",
+            )}
           >
             <Home className="h-4 w-4 mr-2" />
             Home
@@ -140,7 +143,10 @@ export default function NavBar({ activeTab, setActiveTab }: NavBarProps) {
             variant={activeTab === "team" ? "default" : "ghost"}
             size="sm"
             onClick={() => navigateTo("team")}
-            className={cn("flex items-center", activeTab === "team" && "bg-primary text-primary-foreground")}
+            className={cn(
+              "flex items-center font-medium",
+              activeTab === "team" && "bg-gray-800 text-white hover:bg-gray-700",
+            )}
           >
             <BarChart3 className="h-4 w-4 mr-2" />
             Team
@@ -175,7 +181,7 @@ export default function NavBar({ activeTab, setActiveTab }: NavBarProps) {
                 <Button variant="ghost" size="icon" className="rounded-full h-8 w-8">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={localStorage.getItem("userAvatar") || ""} alt="User avatar" />
-                    <AvatarFallback className="bg-primary text-primary-foreground">
+                    <AvatarFallback className="bg-gray-800 text-white">
                       {user ? getInitials(user.username) : "??"}
                     </AvatarFallback>
                   </Avatar>

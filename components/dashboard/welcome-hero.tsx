@@ -59,7 +59,7 @@ export default function WelcomeHero() {
       </CardHeader>
       <CardContent>
         <p className="text-muted-foreground">
-          Welcome to your Client Management Dashboard. You are currently managing {clients.length} clients,
+          Welcome to your Team Hotel Management Dashboard. You are currently managing {clients.length} clients,
           {orders.length} orders, {deposits.length} deposits, and {withdrawals.length} withdrawals.
         </p>
       </CardContent>
