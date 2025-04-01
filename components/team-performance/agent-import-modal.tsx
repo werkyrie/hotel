@@ -27,7 +27,7 @@ interface AgentImportModalProps {
 }
 
 export default function AgentImportModal({ isOpen, onClose }: AgentImportModalProps) {
-  const { addAgent } = useTeamContext()
+  const { addAgent, updateAgent, agents } = useTeamContext()
   const { toast } = useToast()
   const [csvData, setCsvData] = useState("")
   const [error, setError] = useState("")
@@ -80,24 +80,51 @@ export default function AgentImportModal({ isOpen, onClose }: AgentImportModalPr
         return
       }
 
-      // Check header
+      // Update the CSV header parsing to be more flexible with column names
       const header = lines[0].split(",").map((h) => h.trim().toLowerCase())
-      const requiredFields = ["agent name", "added today", "monthly added", "total deposits"]
-      const missingFields = requiredFields.filter((field) => !header.includes(field))
+      const requiredFields = ["agent name", "name", "added today", "monthly added", "open accounts", "total deposits"]
+      const headerMap = {
+        "agent name": ["agent name", "name", "agentname"],
+        "added today": ["added today", "addedtoday", "added"],
+        "monthly added": ["monthly added", "monthlyadded", "monthly"],
+        "open accounts": ["open accounts", "openaccounts", "accounts"],
+        "total deposits": ["total deposits", "totaldeposits", "deposits"],
+      }
 
-      if (missingFields.length > 0) {
-        setError(`CSV is missing required fields: ${missingFields.join(", ")}`)
+      // Check if all required field categories are present
+      const missingCategories = []
+      for (const category in headerMap) {
+        const found = headerMap[category].some((field) => header.includes(field))
+        if (!found) {
+          missingCategories.push(category)
+        }
+      }
+
+      if (missingCategories.length > 0) {
+        setError(`CSV is missing required fields: ${missingCategories.join(", ")}`)
         setIsProcessing(false)
         return
       }
 
+      // Find the index for each required field
+      const getFieldIndex = (category) => {
+        for (const field of headerMap[category]) {
+          const index = header.indexOf(field)
+          if (index !== -1) return index
+        }
+        return -1
+      }
+
+      const nameIndex = getFieldIndex("agent name")
+      const addedTodayIndex = getFieldIndex("added today")
+      const monthlyAddedIndex = getFieldIndex("monthly added")
+      const openAccountsIndex = getFieldIndex("open accounts")
+      const totalDepositsIndex = getFieldIndex("total deposits")
+
       // Process data rows
       let successCount = 0
       let errorCount = 0
-      const nameIndex = header.indexOf("agent name")
-      const addedTodayIndex = header.indexOf("added today")
-      const monthlyAddedIndex = header.indexOf("monthly added")
-      const totalDepositsIndex = header.indexOf("total deposits")
+      const processedNames = new Set() // Track processed names to avoid duplicates in the same import
 
       // Process rows with a small delay to show progress
       for (let i = 1; i < lines.length; i++) {
@@ -111,9 +138,17 @@ export default function AgentImportModal({ isOpen, onClose }: AgentImportModalPr
             continue
           }
 
+          // Skip if we've already processed this name in the current import
+          if (processedNames.has(name.toLowerCase())) {
+            errorCount++
+            continue
+          }
+          processedNames.add(name.toLowerCase())
+
           // Validate and parse numeric fields
           const addedToday = Number.parseInt(values[addedTodayIndex], 10)
           const monthlyAdded = Number.parseInt(values[monthlyAddedIndex], 10)
+          const openAccounts = openAccountsIndex !== -1 ? Number.parseInt(values[openAccountsIndex], 10) : 0
           const totalDeposits = Number.parseFloat(values[totalDepositsIndex])
 
           if (
@@ -121,6 +156,7 @@ export default function AgentImportModal({ isOpen, onClose }: AgentImportModalPr
             addedToday < 0 ||
             isNaN(monthlyAdded) ||
             monthlyAdded < 0 ||
+            (openAccountsIndex !== -1 && (isNaN(openAccounts) || openAccounts < 0)) ||
             isNaN(totalDeposits) ||
             totalDeposits < 0
           ) {
@@ -128,14 +164,29 @@ export default function AgentImportModal({ isOpen, onClose }: AgentImportModalPr
             continue
           }
 
-          // Create and add agent
-          addAgent({
-            name,
-            addedToday,
-            monthlyAdded,
-            openAccounts: 0, // Default value
-            totalDeposits,
-          })
+          // Check if agent with same name already exists
+          const existingAgentIndex = agents.findIndex((agent) => agent.name.toLowerCase() === name.toLowerCase())
+
+          if (existingAgentIndex !== -1) {
+            // Update existing agent instead of creating a duplicate
+            const existingAgent = agents[existingAgentIndex]
+            updateAgent({
+              ...existingAgent,
+              addedToday,
+              monthlyAdded,
+              openAccounts: openAccountsIndex !== -1 ? openAccounts : existingAgent.openAccounts,
+              totalDeposits,
+            })
+          } else {
+            // Create and add new agent
+            addAgent({
+              name,
+              addedToday,
+              monthlyAdded,
+              openAccounts: openAccountsIndex !== -1 ? openAccounts : 0,
+              totalDeposits,
+            })
+          }
 
           successCount++
         }

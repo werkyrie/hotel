@@ -71,3 +71,11 @@ export interface TimelineEvent {
   paymentMode?: string
 }
 
+// Update the ClientContextType interface to include the new bulk functions
+export interface ClientContextType {
+  // ... existing properties
+  bulkAddDeposits: (deposits: Deposit[]) => void
+  bulkAddWithdrawals: (withdrawals: Withdrawal[]) => void
+  // ... rest of the properties
+}
+

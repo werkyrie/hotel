@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Trash2,
   ChevronDown,
@@ -27,6 +28,14 @@ import { useToast } from "@/hooks/use-toast"
 import AgentRegistrationModal from "./agent-registration-modal"
 import AgentImportModal from "./agent-import-modal"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 export default function AgentTable() {
   const { agents, updateAgent, deleteAgent } = useTeamContext()
@@ -41,6 +50,8 @@ export default function AgentTable() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+  const [selectedAgents, setSelectedAgents] = useState<string[]>([])
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
 
   // Filter and sort agents
   useEffect(() => {
@@ -167,6 +178,51 @@ export default function AgentTable() {
         title: "Agent deleted",
         description: `${agentName} has been removed from the system`,
       })
+    }
+  }
+
+  // Handle bulk delete
+  const handleBulkDelete = async () => {
+    setIsDeleteModalOpen(false)
+
+    // Get names for toast message
+    const selectedNames = agents
+      .filter((agent) => selectedAgents.includes(agent.id))
+      .map((agent) => agent.name)
+      .join(", ")
+
+    // Delete all selected agents
+    for (const agentId of selectedAgents) {
+      await deleteAgent(agentId)
+    }
+
+    // Clear selection
+    setSelectedAgents([])
+
+    // Show success toast
+    toast({
+      title: "Agents deleted",
+      description: `${selectedAgents.length} agents have been removed`,
+    })
+  }
+
+  // Handle select all
+  const handleSelectAll = () => {
+    if (selectedAgents.length === filteredAgents.length) {
+      // If all are selected, deselect all
+      setSelectedAgents([])
+    } else {
+      // Otherwise, select all
+      setSelectedAgents(filteredAgents.map((agent) => agent.id))
+    }
+  }
+
+  // Handle individual selection
+  const handleSelectAgent = (agentId: string) => {
+    if (selectedAgents.includes(agentId)) {
+      setSelectedAgents(selectedAgents.filter((id) => id !== agentId))
+    } else {
+      setSelectedAgents([...selectedAgents, agentId])
     }
   }
 
@@ -334,6 +390,18 @@ export default function AgentTable() {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {selectedAgents.length > 0 && !isViewer && (
+            <Button
+              onClick={() => setIsDeleteModalOpen(true)}
+              variant="destructive"
+              size="sm"
+              className="animate-fade-in"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Selected ({selectedAgents.length})
+            </Button>
+          )}
+
           <Button onClick={handleExportCsv} variant="outline" size="sm" className="animate-fade-in">
             <FileDown className="h-4 w-4 mr-2" />
             Export CSV
@@ -373,7 +441,8 @@ export default function AgentTable() {
           <p className="flex items-center">
             <Edit className="h-4 w-4 mr-2" />
             <span>
-              <strong>Pro tip:</strong> Hover over cells to see edit buttons. Click the edit icon to modify values.
+              <strong>Pro tip:</strong> Hover over cells to see edit buttons. Click the edit icon to modify values. Use
+              checkboxes to select multiple agents for bulk actions.
             </span>
           </p>
         </div>
@@ -392,6 +461,15 @@ export default function AgentTable() {
         <Table>
           <TableHeader className="sticky top-0 bg-background">
             <TableRow className="bg-muted/50">
+              {!isViewer && (
+                <TableHead className="w-[50px]">
+                  <Checkbox
+                    checked={filteredAgents.length > 0 && selectedAgents.length === filteredAgents.length}
+                    onCheckedChange={handleSelectAll}
+                    aria-label="Select all agents"
+                  />
+                </TableHead>
+              )}
               <TableHead className="cursor-pointer font-medium text-center" onClick={() => handleSort("name")}>
                 Agent Name
                 {sortField === "name" &&
@@ -457,8 +535,19 @@ export default function AgentTable() {
               filteredAgents.map((agent) => (
                 <TableRow
                   key={agent.id}
-                  className={`agent-row hover:bg-muted/30 transition-colors ${editingCell?.agentId === agent.id ? "editing bg-muted/20" : ""}`}
+                  className={`agent-row hover:bg-muted/30 transition-colors ${
+                    editingCell?.agentId === agent.id ? "editing bg-muted/20" : ""
+                  } ${selectedAgents.includes(agent.id) ? "bg-muted/40" : ""}`}
                 >
+                  {!isViewer && (
+                    <TableCell className="w-[50px]">
+                      <Checkbox
+                        checked={selectedAgents.includes(agent.id)}
+                        onCheckedChange={() => handleSelectAgent(agent.id)}
+                        aria-label={`Select ${agent.name}`}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="editable-cell text-center">
                     {renderEditableCell(agent, "name", agent.name)}
                   </TableCell>
@@ -505,7 +594,7 @@ export default function AgentTable() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={!isViewer ? 8 : 7} className="text-center py-8 text-muted-foreground">
                   No agents found
                 </TableCell>
               </TableRow>
@@ -519,6 +608,28 @@ export default function AgentTable() {
       )}
 
       {isImportModalOpen && <AgentImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />}
+
+      {/* Bulk Delete Confirmation Modal */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {selectedAgents.length} selected agent
+              {selectedAgents.length !== 1 ? "s" : ""}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleBulkDelete}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete {selectedAgents.length} Agent{selectedAgents.length !== 1 ? "s" : ""}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

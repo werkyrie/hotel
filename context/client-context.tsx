@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import type { Client, Order, Deposit, Withdrawal, OrderRequest, OrderRequestStatus } from "@/types/client"
 import { db, auth } from "@/lib/firebase"
@@ -50,6 +52,11 @@ interface ClientContextType {
   resetAllData: () => Promise<void>
   exportData: () => Promise<string>
   importData: (jsonData: string) => Promise<void>
+  bulkAddDeposits: (deposits: Deposit[]) => Promise<void>
+  bulkAddWithdrawals: (withdrawals: Withdrawal[]) => Promise<void>
+  refreshData: () => Promise<void>
+  setDeposits: React.Dispatch<React.SetStateAction<Deposit[]>>
+  setWithdrawals: React.Dispatch<React.SetStateAction<Withdrawal[]>>
 }
 
 const ClientContext = createContext<ClientContextType | undefined>(undefined)
@@ -90,6 +97,110 @@ export function ClientProvider({ children }: { children: ReactNode }) {
 
     return () => unsubscribe()
   }, [])
+
+  // Function to manually refresh data from Firestore
+  const refreshData = async () => {
+    if (!isAuthenticated) return
+
+    try {
+      setLoading(true)
+
+      // Fetch clients
+      const clientsSnapshot = await getDocs(collection(db, "clients"))
+      const clientsData: Client[] = []
+      clientsSnapshot.forEach((doc) => {
+        const data = doc.data()
+        clientsData.push({
+          shopId: doc.id,
+          clientName: data.clientName,
+          agent: data.agent,
+          kycDate: data.kycDate ? new Date(data.kycDate.seconds * 1000) : undefined,
+          status: data.status,
+          notes: data.notes || "",
+        })
+      })
+      setClients(clientsData)
+
+      // Fetch orders
+      const ordersSnapshot = await getDocs(collection(db, "orders"))
+      const ordersData: Order[] = []
+      ordersSnapshot.forEach((doc) => {
+        const data = doc.data()
+        ordersData.push({
+          orderId: doc.id,
+          shopId: data.shopId,
+          clientName: data.clientName,
+          agent: data.agent,
+          date: data.date ? new Date(data.date.seconds * 1000) : new Date(),
+          location: data.location,
+          price: data.price,
+          status: data.status,
+        })
+      })
+      setOrders(ordersData)
+
+      // Fetch deposits - get all deposits without limit
+      const depositsSnapshot = await getDocs(collection(db, "deposits"))
+      const depositsData: Deposit[] = []
+      depositsSnapshot.forEach((doc) => {
+        const data = doc.data()
+        depositsData.push({
+          depositId: doc.id,
+          shopId: data.shopId,
+          clientName: data.clientName,
+          agent: data.agent,
+          date: data.date ? new Date(data.date.seconds * 1000) : new Date(),
+          amount: data.amount,
+          paymentMode: data.paymentMode,
+        })
+      })
+      setDeposits(depositsData)
+      console.log(`Refreshed ${depositsData.length} deposits`)
+
+      // Fetch withdrawals - get all withdrawals without limit
+      const withdrawalsSnapshot = await getDocs(collection(db, "withdrawals"))
+      const withdrawalsData: Withdrawal[] = []
+      withdrawalsSnapshot.forEach((doc) => {
+        const data = doc.data()
+        withdrawalsData.push({
+          withdrawalId: doc.id,
+          shopId: data.shopId,
+          clientName: data.clientName,
+          agent: data.agent,
+          date: data.date ? new Date(data.date.seconds * 1000) : new Date(),
+          amount: data.amount,
+          paymentMode: data.paymentMode,
+        })
+      })
+      setWithdrawals(withdrawalsData)
+      console.log(`Refreshed ${withdrawalsData.length} withdrawals`)
+
+      // Fetch order requests
+      const requestsSnapshot = await getDocs(collection(db, "orderRequests"))
+      const requestsData: OrderRequest[] = []
+      requestsSnapshot.forEach((doc) => {
+        const data = doc.data()
+        requestsData.push({
+          id: doc.id,
+          shopId: data.shopId,
+          clientName: data.clientName,
+          agent: data.agent,
+          date: data.date ? new Date(data.date.seconds * 1000) : new Date(),
+          location: data.location,
+          price: data.price,
+          status: data.status,
+          remarks: data.remarks || "",
+          createdAt: data.createdAt ? data.createdAt.seconds * 1000 : Date.now(),
+        })
+      })
+      setOrderRequests(requestsData)
+
+      setLoading(false)
+    } catch (error) {
+      console.error("Error refreshing data:", error)
+      setLoading(false)
+    }
+  }
 
   // Load data from Firestore only when authenticated
   useEffect(() => {
@@ -144,6 +255,7 @@ export function ClientProvider({ children }: { children: ReactNode }) {
       },
     )
 
+    // Modified to fetch all deposits without limit
     const depositsUnsubscribe = onSnapshot(
       collection(db, "deposits"),
       (snapshot) => {
@@ -161,12 +273,14 @@ export function ClientProvider({ children }: { children: ReactNode }) {
           })
         })
         setDeposits(depositsData)
+        console.log(`Loaded ${depositsData.length} deposits from Firestore`)
       },
       (error) => {
         console.error("Error fetching deposits:", error)
       },
     )
 
+    // Modified to fetch all withdrawals without limit
     const withdrawalsUnsubscribe = onSnapshot(
       collection(db, "withdrawals"),
       (snapshot) => {
@@ -184,6 +298,7 @@ export function ClientProvider({ children }: { children: ReactNode }) {
           })
         })
         setWithdrawals(withdrawalsData)
+        console.log(`Loaded ${withdrawalsData.length} withdrawals from Firestore`)
       },
       (error) => {
         console.error("Error fetching withdrawals:", error)
@@ -215,6 +330,9 @@ export function ClientProvider({ children }: { children: ReactNode }) {
         console.error("Error fetching order requests:", error)
       },
     )
+
+    // Initial data load
+    refreshData()
 
     setLoading(false)
 
@@ -497,6 +615,63 @@ export function ClientProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Bulk add deposits
+  const bulkAddDeposits = async (newDeposits: Deposit[]) => {
+    try {
+      if (!isAuthenticated) {
+        // Fallback to localStorage
+        setDeposits((prev) => [...prev, ...newDeposits])
+        localStorage.setItem("deposits", JSON.stringify([...deposits, ...newDeposits]))
+        return
+      }
+
+      // Use batched writes for Firebase
+      const BATCH_SIZE = 450 // Firestore limit is 500 operations per batch
+
+      for (let i = 0; i < newDeposits.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db)
+        const batchDeposits = newDeposits.slice(i, i + BATCH_SIZE)
+
+        for (const deposit of batchDeposits) {
+          const depositDoc = doc(db, "deposits", deposit.depositId)
+
+          // Ensure date is properly formatted
+          let depositDate: Date
+          if (typeof deposit.date === "string") {
+            depositDate = new Date(deposit.date)
+            if (isNaN(depositDate.getTime())) {
+              depositDate = new Date()
+            }
+          } else if (deposit.date instanceof Date) {
+            depositDate = deposit.date
+          } else {
+            depositDate = new Date()
+          }
+
+          batch.set(depositDoc, {
+            shopId: deposit.shopId,
+            clientName: deposit.clientName,
+            agent: deposit.agent,
+            date: Timestamp.fromDate(depositDate),
+            amount: deposit.amount,
+            paymentMode: deposit.paymentMode,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          })
+        }
+
+        await batch.commit()
+        console.log(`Committed batch ${Math.floor(i / BATCH_SIZE) + 1} with ${batchDeposits.length} deposits`)
+      }
+
+      // Force a refresh of the data
+      await refreshData()
+    } catch (error) {
+      console.error("Error bulk adding deposits:", error)
+      throw error
+    }
+  }
+
   const updateDeposit = async (updatedDeposit: Deposit) => {
     try {
       await updateDoc(doc(db, "deposits", updatedDeposit.depositId), {
@@ -563,6 +738,63 @@ export function ClientProvider({ children }: { children: ReactNode }) {
       })
     } catch (error) {
       console.error("Error adding withdrawal:", error)
+    }
+  }
+
+  // Bulk add withdrawals
+  const bulkAddWithdrawals = async (newWithdrawals: Withdrawal[]) => {
+    try {
+      if (!isAuthenticated) {
+        // Fallback to localStorage
+        setWithdrawals((prev) => [...prev, ...newWithdrawals])
+        localStorage.setItem("withdrawals", JSON.stringify([...withdrawals, ...newWithdrawals]))
+        return
+      }
+
+      // Use batched writes for Firebase
+      const BATCH_SIZE = 450 // Firestore limit is 500 operations per batch
+
+      for (let i = 0; i < newWithdrawals.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db)
+        const batchWithdrawals = newWithdrawals.slice(i, i + BATCH_SIZE)
+
+        for (const withdrawal of batchWithdrawals) {
+          const withdrawalDoc = doc(db, "withdrawals", withdrawal.withdrawalId)
+
+          // Ensure date is properly formatted
+          let withdrawalDate: Date
+          if (typeof withdrawal.date === "string") {
+            withdrawalDate = new Date(withdrawal.date)
+            if (isNaN(withdrawalDate.getTime())) {
+              withdrawalDate = new Date()
+            }
+          } else if (withdrawal.date instanceof Date) {
+            withdrawalDate = withdrawal.date
+          } else {
+            withdrawalDate = new Date()
+          }
+
+          batch.set(withdrawalDoc, {
+            shopId: withdrawal.shopId,
+            clientName: withdrawal.clientName,
+            agent: withdrawal.agent,
+            date: Timestamp.fromDate(withdrawalDate),
+            amount: withdrawal.amount,
+            paymentMode: withdrawal.paymentMode,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          })
+        }
+
+        await batch.commit()
+        console.log(`Committed batch ${Math.floor(i / BATCH_SIZE) + 1} with ${batchWithdrawals.length} withdrawals`)
+      }
+
+      // Force a refresh of the data
+      await refreshData()
+    } catch (error) {
+      console.error("Error bulk adding withdrawals:", error)
+      throw error
     }
   }
 
@@ -772,6 +1004,11 @@ export function ClientProvider({ children }: { children: ReactNode }) {
         resetAllData,
         exportData,
         importData,
+        bulkAddDeposits,
+        bulkAddWithdrawals,
+        refreshData,
+        setDeposits,
+        setWithdrawals,
       }}
     >
       {children}

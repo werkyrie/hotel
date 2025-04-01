@@ -20,8 +20,9 @@ import {
 } from "@/components/ui/dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, FileUp, Upload, X } from "lucide-react"
-import { format } from "date-fns"
 import { Progress } from "@/components/ui/progress"
+import { db } from "@/lib/firebase"
+import { doc, writeBatch, Timestamp, serverTimestamp } from "firebase/firestore"
 
 interface BulkDepositModalProps {
   isOpen: boolean
@@ -29,7 +30,7 @@ interface BulkDepositModalProps {
 }
 
 export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalProps) {
-  const { clients, addDeposit, generateDepositId } = useClientContext()
+  const { clients, generateDepositId } = useClientContext()
   const { toast } = useToast()
   const [csvData, setCsvData] = useState("")
   const [error, setError] = useState("")
@@ -101,10 +102,17 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
       const amountIndex = header.indexOf("amount")
       const paymentModeIndex = header.indexOf("payment mode")
 
-      // Process rows with a small delay to show progress
+      // Collect all valid deposits
+      const allDeposits: Deposit[] = []
+
       for (let i = 1; i < lines.length; i++) {
         if (lines[i].trim()) {
           const values = lines[i].split(",").map((v) => v.trim())
+
+          if (values.length < 4) {
+            errorCount++
+            continue
+          }
 
           // Validate shop ID
           const shopId = values[shopIdIndex]
@@ -113,17 +121,16 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
           const agent = client?.agent || "Unknown Agent"
 
           // Validate and parse date
-          let depositDate = values[dateIndex]
+          const depositDate = values[dateIndex]
+          let parsedDate: Date
           try {
             // Try to parse and format the date
-            const parsedDate = new Date(depositDate)
+            parsedDate = new Date(depositDate)
             if (isNaN(parsedDate.getTime())) {
-              depositDate = format(new Date(), "yyyy-MM-dd")
-            } else {
-              depositDate = format(parsedDate, "yyyy-MM-dd")
+              parsedDate = new Date()
             }
           } catch (e) {
-            depositDate = format(new Date(), "yyyy-MM-dd")
+            parsedDate = new Date()
           }
 
           // Validate amount
@@ -150,32 +157,55 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
             }
           }
 
-          try {
-            // Create and add deposit
-            const deposit: Deposit = {
-              depositId: generateDepositId(),
-              shopId,
-              clientName,
-              agent,
-              date: depositDate,
-              amount,
-              paymentMode,
-            }
-
-            await addDeposit(deposit)
-            successCount++
-          } catch (error) {
-            console.error("Error adding deposit:", error)
-            errorCount++
+          // Create deposit object
+          const deposit: Deposit = {
+            depositId: generateDepositId(),
+            shopId,
+            clientName,
+            agent,
+            date: parsedDate,
+            amount,
+            paymentMode,
           }
+
+          allDeposits.push(deposit)
+          successCount++
         }
 
         // Update progress
         setProgress(Math.round((i / (lines.length - 1)) * 100))
+      }
 
-        // Small delay to show progress animation
-        if (i % 10 === 0) {
-          await new Promise((resolve) => setTimeout(resolve, 50))
+      // Log for debugging
+      console.log(`Prepared ${allDeposits.length} deposits for import`)
+
+      // Add all deposits to Firebase using batched writes
+      if (allDeposits.length > 0) {
+        // Firebase has a limit of 500 operations per batch
+        const BATCH_SIZE = 450
+
+        for (let i = 0; i < allDeposits.length; i += BATCH_SIZE) {
+          const batch = writeBatch(db)
+          const batchDeposits = allDeposits.slice(i, i + BATCH_SIZE)
+
+          for (const deposit of batchDeposits) {
+            // Correct way to reference a document in Firestore v9
+            const depositDoc = doc(db, "deposits", deposit.depositId)
+
+            batch.set(depositDoc, {
+              shopId: deposit.shopId,
+              clientName: deposit.clientName,
+              agent: deposit.agent,
+              date: Timestamp.fromDate(new Date(deposit.date)),
+              amount: deposit.amount,
+              paymentMode: deposit.paymentMode,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            })
+          }
+
+          await batch.commit()
+          console.log(`Committed batch ${Math.floor(i / BATCH_SIZE) + 1} with ${batchDeposits.length} deposits`)
         }
       }
 
@@ -197,11 +227,11 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
       if (successCount > 0) {
         setTimeout(() => {
           onClose()
-        }, 2000)
+        }, 1000)
       }
     } catch (error) {
       console.error("Error processing CSV data:", error)
-      setError("Error processing CSV data. Please check the format.")
+      setError(`Error processing CSV data: ${error.message}`)
       setIsProcessing(false)
     }
   }

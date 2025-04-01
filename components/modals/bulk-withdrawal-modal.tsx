@@ -20,8 +20,9 @@ import {
 } from "@/components/ui/dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, FileUp, Upload, X } from "lucide-react"
-import { format } from "date-fns"
 import { Progress } from "@/components/ui/progress"
+import { db } from "@/lib/firebase"
+import { doc, writeBatch, Timestamp, serverTimestamp } from "firebase/firestore"
 
 interface BulkWithdrawalModalProps {
   isOpen: boolean
@@ -29,7 +30,7 @@ interface BulkWithdrawalModalProps {
 }
 
 export default function BulkWithdrawalModal({ isOpen, onClose }: BulkWithdrawalModalProps) {
-  const { clients, addWithdrawal, generateWithdrawalId } = useClientContext()
+  const { clients, generateWithdrawalId } = useClientContext()
   const { toast } = useToast()
   const [csvData, setCsvData] = useState("")
   const [error, setError] = useState("")
@@ -101,10 +102,17 @@ export default function BulkWithdrawalModal({ isOpen, onClose }: BulkWithdrawalM
       const amountIndex = header.indexOf("amount")
       const paymentModeIndex = header.indexOf("payment mode")
 
-      // Process rows with a small delay to show progress
+      // Collect all valid withdrawals
+      const allWithdrawals: Withdrawal[] = []
+
       for (let i = 1; i < lines.length; i++) {
         if (lines[i].trim()) {
           const values = lines[i].split(",").map((v) => v.trim())
+
+          if (values.length < 4) {
+            errorCount++
+            continue
+          }
 
           // Validate shop ID
           const shopId = values[shopIdIndex]
@@ -113,17 +121,16 @@ export default function BulkWithdrawalModal({ isOpen, onClose }: BulkWithdrawalM
           const agent = client?.agent || "Unknown Agent"
 
           // Validate and parse date
-          let withdrawalDate = values[dateIndex]
+          const withdrawalDate = values[dateIndex]
+          let parsedDate: Date
           try {
             // Try to parse and format the date
-            const parsedDate = new Date(withdrawalDate)
+            parsedDate = new Date(withdrawalDate)
             if (isNaN(parsedDate.getTime())) {
-              withdrawalDate = format(new Date(), "yyyy-MM-dd")
-            } else {
-              withdrawalDate = format(parsedDate, "yyyy-MM-dd")
+              parsedDate = new Date()
             }
           } catch (e) {
-            withdrawalDate = format(new Date(), "yyyy-MM-dd")
+            parsedDate = new Date()
           }
 
           // Validate amount
@@ -150,27 +157,55 @@ export default function BulkWithdrawalModal({ isOpen, onClose }: BulkWithdrawalM
             }
           }
 
-          // Create and add withdrawal
+          // Create withdrawal object
           const withdrawal: Withdrawal = {
             withdrawalId: generateWithdrawalId(),
             shopId,
             clientName,
             agent,
-            date: withdrawalDate,
+            date: parsedDate,
             amount,
             paymentMode,
           }
 
-          addWithdrawal(withdrawal)
+          allWithdrawals.push(withdrawal)
           successCount++
         }
 
         // Update progress
         setProgress(Math.round((i / (lines.length - 1)) * 100))
+      }
 
-        // Small delay to show progress animation
-        if (i % 10 === 0) {
-          await new Promise((resolve) => setTimeout(resolve, 50))
+      // Log for debugging
+      console.log(`Prepared ${allWithdrawals.length} withdrawals for import`)
+
+      // Add all withdrawals to Firebase using batched writes
+      if (allWithdrawals.length > 0) {
+        // Firebase has a limit of 500 operations per batch
+        const BATCH_SIZE = 450
+
+        for (let i = 0; i < allWithdrawals.length; i += BATCH_SIZE) {
+          const batch = writeBatch(db)
+          const batchWithdrawals = allWithdrawals.slice(i, i + BATCH_SIZE)
+
+          for (const withdrawal of batchWithdrawals) {
+            // Correct way to reference a document in Firestore v9
+            const withdrawalDoc = doc(db, "withdrawals", withdrawal.withdrawalId)
+
+            batch.set(withdrawalDoc, {
+              shopId: withdrawal.shopId,
+              clientName: withdrawal.clientName,
+              agent: withdrawal.agent,
+              date: Timestamp.fromDate(new Date(withdrawal.date)),
+              amount: withdrawal.amount,
+              paymentMode: withdrawal.paymentMode,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            })
+          }
+
+          await batch.commit()
+          console.log(`Committed batch ${Math.floor(i / BATCH_SIZE) + 1} with ${batchWithdrawals.length} withdrawals`)
         }
       }
 
@@ -192,10 +227,11 @@ export default function BulkWithdrawalModal({ isOpen, onClose }: BulkWithdrawalM
       if (successCount > 0) {
         setTimeout(() => {
           onClose()
-        }, 2000)
+        }, 1000)
       }
     } catch (error) {
-      setError("Error processing CSV data. Please check the format.")
+      console.error("Error processing CSV data:", error)
+      setError(`Error processing CSV data: ${error.message}`)
       setIsProcessing(false)
     }
   }

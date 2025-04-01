@@ -54,15 +54,36 @@ export default function DepositsTable() {
   const [paymentModeFilter, setPaymentModeFilter] = useState<string>("all")
   const [agentFilter, setAgentFilter] = useState<string>("all")
   const [isDeleting, setIsDeleting] = useState(false)
+  const [localDeposits, setLocalDeposits] = useState<Deposit[]>([])
+  const [
+    /* remove this line const [isRefreshing, setIsRefreshing] = useState(false) */
+  ] = useState(false)
+
+  // Load deposits from localStorage on initial render
+  useEffect(() => {
+    try {
+      const savedDeposits = localStorage.getItem("deposits")
+      if (savedDeposits) {
+        const parsedDeposits = JSON.parse(savedDeposits)
+        setLocalDeposits(parsedDeposits)
+        console.log(`Loaded ${parsedDeposits.length} deposits from localStorage`)
+      }
+    } catch (error) {
+      console.error("Error loading deposits from localStorage:", error)
+    }
+  }, [])
+
+  // Use either context deposits or localStorage deposits, whichever has more items
+  const allDeposits = deposits && deposits.length > localDeposits.length ? deposits : localDeposits
 
   // Filter and sort deposits
   useEffect(() => {
-    if (!deposits || !Array.isArray(deposits)) {
+    if (!allDeposits || !Array.isArray(allDeposits)) {
       setFilteredDeposits([])
       return
     }
 
-    let result = [...deposits]
+    let result = [...allDeposits]
 
     // Apply search filter
     if (searchTerm) {
@@ -106,7 +127,7 @@ export default function DepositsTable() {
     })
 
     setFilteredDeposits(result)
-  }, [deposits, searchTerm, sortField, sortDirection, paymentModeFilter, agentFilter])
+  }, [allDeposits, searchTerm, sortField, sortDirection, paymentModeFilter, agentFilter])
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredDeposits.length / itemsPerPage)
@@ -143,6 +164,31 @@ export default function DepositsTable() {
   const handleExportOptions = () => {
     setIsExportModalOpen(true)
   }
+
+  /* remove this function const handleRefreshData = () => {
+    setIsRefreshing(true)
+    try {
+      const savedDeposits = localStorage.getItem("deposits")
+      if (savedDeposits) {
+        const parsedDeposits = JSON.parse(savedDeposits)
+        setLocalDeposits(parsedDeposits)
+        toast({
+          title: "Data Refreshed",
+          description: `Loaded ${parsedDeposits.length} deposits from storage.`,
+          variant: "default",
+        })
+      }
+    } catch (error) {
+      console.error("Error refreshing data:", error)
+      toast({
+        title: "Error",
+        description: "Failed to refresh data. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsRefreshing(false)
+    }
+  } */
 
   const handleDeleteDeposit = useCallback(
     async (depositId: string) => {
@@ -186,8 +232,8 @@ export default function DepositsTable() {
 
   // Get unique agents from deposits
   const uniqueAgents =
-    deposits && Array.isArray(deposits)
-      ? Array.from(new Set(deposits.map((deposit) => deposit.agent).filter(Boolean))).sort()
+    allDeposits && Array.isArray(allDeposits)
+      ? Array.from(new Set(allDeposits.map((deposit) => deposit.agent).filter(Boolean))).sort()
       : []
 
   // Format date for display

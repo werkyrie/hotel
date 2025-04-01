@@ -33,6 +33,8 @@ interface ClientContextType {
   resetAllData: () => void
   exportData: () => string
   importData: (jsonData: string) => void
+  bulkAddDeposits: (newDeposits: Deposit[]) => void
+  bulkAddWithdrawals: (newWithdrawals: Withdrawal[]) => void
 }
 
 const ClientContext = createContext<ClientContextType | undefined>(undefined)
@@ -141,7 +143,10 @@ export function ClientProvider({ children }: { children: ReactNode }) {
 
   // Deposit CRUD operations
   const addDeposit = (deposit: Deposit) => {
-    setDeposits((prev) => [...prev, deposit])
+    setDeposits((prev) => {
+      const newDeposits = [...prev, deposit]
+      return newDeposits
+    })
   }
 
   const updateDeposit = (updatedDeposit: Deposit) => {
@@ -156,7 +161,10 @@ export function ClientProvider({ children }: { children: ReactNode }) {
 
   // Withdrawal CRUD operations
   const addWithdrawal = (withdrawal: Withdrawal) => {
-    setWithdrawals((prev) => [...prev, withdrawal])
+    setWithdrawals((prev) => {
+      const newWithdrawals = [...prev, withdrawal]
+      return newWithdrawals
+    })
   }
 
   const updateWithdrawal = (updatedWithdrawal: Withdrawal) => {
@@ -225,6 +233,27 @@ export function ClientProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Add this function to directly update deposits
+  const bulkAddDeposits = (newDeposits: Deposit[]) => {
+    setDeposits((prev) => {
+      const updatedDeposits = [...prev, ...newDeposits]
+      // Force update localStorage
+      localStorage.setItem("deposits", JSON.stringify(updatedDeposits))
+      return updatedDeposits
+    })
+  }
+
+  // Add this function to directly update withdrawals
+  const bulkAddWithdrawals = (newWithdrawals: Withdrawal[]) => {
+    setWithdrawals((prev) => {
+      const updatedWithdrawals = [...prev, ...newWithdrawals]
+      // Force update localStorage
+      localStorage.setItem("withdrawals", JSON.stringify(updatedWithdrawals))
+      return updatedWithdrawals
+    })
+  }
+
+  // Update the ClientContext.Provider value to include these new functions
   return (
     <ClientContext.Provider
       value={{
@@ -247,6 +276,8 @@ export function ClientProvider({ children }: { children: ReactNode }) {
         addWithdrawal,
         updateWithdrawal,
         deleteWithdrawal,
+        bulkAddDeposits,
+        bulkAddWithdrawals,
         addOrderRequest,
         updateOrderRequestStatus,
         deleteOrderRequest,
