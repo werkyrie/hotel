@@ -29,12 +29,24 @@ import {
   DollarSign,
   CreditCard,
   FileDown,
+  RefreshCw,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import DepositModal from "./modals/deposit-modal"
 import BulkDepositModal from "./modals/bulk-deposit-modal"
 import ExportOptionsModal from "./modals/export-options-modal"
 import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export default function DepositsTable() {
   const { deposits, deleteDeposit } = useClientContext()
@@ -55,9 +67,11 @@ export default function DepositsTable() {
   const [agentFilter, setAgentFilter] = useState<string>("all")
   const [isDeleting, setIsDeleting] = useState(false)
   const [localDeposits, setLocalDeposits] = useState<Deposit[]>([])
-  const [
-    /* remove this line const [isRefreshing, setIsRefreshing] = useState(false) */
-  ] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Multiple delete functionality
+  const [selectedDepositIds, setSelectedDepositIds] = useState<string[]>([])
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   // Load deposits from localStorage on initial render
   useEffect(() => {
@@ -129,6 +143,11 @@ export default function DepositsTable() {
     setFilteredDeposits(result)
   }, [allDeposits, searchTerm, sortField, sortDirection, paymentModeFilter, agentFilter])
 
+  // Reset selected deposits when filtered deposits change
+  useEffect(() => {
+    setSelectedDepositIds([])
+  }, [filteredDeposits])
+
   // Calculate pagination
   const totalPages = Math.ceil(filteredDeposits.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
@@ -165,7 +184,7 @@ export default function DepositsTable() {
     setIsExportModalOpen(true)
   }
 
-  /* remove this function const handleRefreshData = () => {
+  const handleRefreshData = () => {
     setIsRefreshing(true)
     try {
       const savedDeposits = localStorage.getItem("deposits")
@@ -188,7 +207,7 @@ export default function DepositsTable() {
     } finally {
       setIsRefreshing(false)
     }
-  } */
+  }
 
   const handleDeleteDeposit = useCallback(
     async (depositId: string) => {
@@ -215,6 +234,50 @@ export default function DepositsTable() {
     },
     [deleteDeposit, toast],
   )
+
+  // Multiple selection handlers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedDepositIds(paginatedDeposits.map((deposit) => deposit.depositId))
+    } else {
+      setSelectedDepositIds([])
+    }
+  }
+
+  const handleSelectDeposit = (depositId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedDepositIds((prev) => [...prev, depositId])
+    } else {
+      setSelectedDepositIds((prev) => prev.filter((id) => id !== depositId))
+    }
+  }
+
+  const handleDeleteSelected = async () => {
+    setIsDeleting(true)
+    try {
+      for (const depositId of selectedDepositIds) {
+        await deleteDeposit(depositId)
+      }
+
+      toast({
+        title: "Deposits Deleted",
+        description: `Successfully deleted ${selectedDepositIds.length} deposits.`,
+        variant: "default",
+      })
+
+      setSelectedDepositIds([])
+      setShowDeleteDialog(false)
+    } catch (error) {
+      console.error("Error deleting deposits:", error)
+      toast({
+        title: "Error",
+        description: "There was an error deleting the deposits. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   // Get payment mode badge color
   const getPaymentModeColor = (paymentMode: string) => {
@@ -248,6 +311,10 @@ export default function DepositsTable() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Deposits</h2>
         <div className="flex gap-2">
+          <Button onClick={handleRefreshData} variant="outline" size="sm" disabled={isRefreshing}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
           <Button onClick={handleExportOptions} variant="outline" size="sm">
             <FileDown className="h-4 w-4 mr-2" />
             Export Options
@@ -314,10 +381,32 @@ export default function DepositsTable() {
         </Select>
       </div>
 
+      {/* Bulk actions bar */}
+      {selectedDepositIds.length > 0 && !isViewer && (
+        <div className="flex items-center justify-between bg-muted p-2 rounded-md mb-2">
+          <span className="text-sm font-medium">
+            {selectedDepositIds.length} {selectedDepositIds.length === 1 ? "deposit" : "deposits"} selected
+          </span>
+          <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)} disabled={isDeleting}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete Selected
+          </Button>
+        </div>
+      )}
+
       <div className="rounded-md border shadow-sm">
         <Table>
           <TableHeader className="sticky top-0 bg-background">
             <TableRow>
+              {!isViewer && (
+                <TableHead className="w-[50px]">
+                  <Checkbox
+                    checked={paginatedDeposits.length > 0 && selectedDepositIds.length === paginatedDeposits.length}
+                    onCheckedChange={handleSelectAll}
+                    aria-label="Select all deposits"
+                  />
+                </TableHead>
+              )}
               <TableHead>Shop ID</TableHead>
               <TableHead>Client Name</TableHead>
               <TableHead>Agent</TableHead>
@@ -364,6 +453,15 @@ export default function DepositsTable() {
             {paginatedDeposits.length > 0 ? (
               paginatedDeposits.map((deposit) => (
                 <TableRow key={deposit.depositId} className="hover:bg-muted/50">
+                  {!isViewer && (
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedDepositIds.includes(deposit.depositId)}
+                        onCheckedChange={(checked) => handleSelectDeposit(deposit.depositId, !!checked)}
+                        aria-label={`Select deposit ${deposit.depositId}`}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="font-medium">{deposit.shopId}</TableCell>
                   <TableCell>{deposit.clientName}</TableCell>
                   <TableCell>{deposit.agent}</TableCell>
@@ -404,7 +502,7 @@ export default function DepositsTable() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-4">
+                <TableCell colSpan={isViewer ? 7 : 8} className="text-center py-4">
                   No deposits found
                 </TableCell>
               </TableRow>
@@ -498,6 +596,29 @@ export default function DepositsTable() {
           type="deposits"
         />
       )}
+
+      {/* Confirmation dialog for bulk delete */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Selected Deposits</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedDepositIds.length}{" "}
+              {selectedDepositIds.length === 1 ? "deposit" : "deposits"}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSelected}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
