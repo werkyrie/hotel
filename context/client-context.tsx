@@ -12,8 +12,6 @@ import {
   getDocs,
   query,
   where,
-  orderBy,
-  limit,
   onSnapshot,
   updateDoc,
   serverTimestamp,
@@ -46,9 +44,9 @@ interface ClientContextType {
   updateOrderRequestStatus: (id: string, status: OrderRequestStatus) => Promise<void>
   deleteOrderRequest: (id: string) => Promise<void>
   isShopIdUnique: (shopId: string, currentId?: string) => Promise<boolean>
-  generateOrderId: () => Promise<string>
-  generateDepositId: () => Promise<string>
-  generateWithdrawalId: () => Promise<string>
+  generateOrderId: () => string
+  generateDepositId: () => string
+  generateWithdrawalId: () => string
   resetAllData: () => Promise<void>
   exportData: () => Promise<string>
   importData: (jsonData: string) => Promise<void>
@@ -230,7 +228,6 @@ export function ClientProvider({ children }: { children: ReactNode }) {
     }
   }, [isAuthenticated])
 
-  // Rest of your code remains the same...
   // Check if a Shop ID is unique
   const isShopIdUnique = async (shopId: string, currentId?: string): Promise<boolean> => {
     if (!isAuthenticated) {
@@ -249,95 +246,25 @@ export function ClientProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Generate unique IDs
-  const generateOrderId = async (): Promise<string> => {
-    if (!isAuthenticated) {
-      // Fallback to localStorage generation
-      const lastOrder = orders.length > 0 ? Number.parseInt(orders[orders.length - 1].orderId.replace("OR", "")) : 0
-      const newId = lastOrder + 1
-      return `OR${newId.toString().padStart(5, "0")}`
-    }
-
-    try {
-      const ordersQuery = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(1))
-      const snapshot = await getDocs(ordersQuery)
-
-      let lastId = 0
-      if (!snapshot.empty) {
-        const lastOrderId = snapshot.docs[0].id
-        if (lastOrderId.startsWith("OR")) {
-          lastId = Number.parseInt(lastOrderId.substring(2))
-        }
-      }
-
-      const newId = lastId + 1
-      return `OR${newId.toString().padStart(5, "0")}`
-    } catch (error) {
-      console.error("Error generating order ID:", error)
-      // Fallback
-      return `OR${Date.now().toString()}`
-    }
+  // Generate unique IDs - simplified to be synchronous
+  const generateOrderId = (): string => {
+    const lastOrder = orders.length > 0 ? Number.parseInt(orders[orders.length - 1].orderId.replace("OR", "")) : 0
+    const newId = lastOrder + 1
+    return `OR${newId.toString().padStart(5, "0")}`
   }
 
-  // Similar modifications for other ID generation methods...
-  const generateDepositId = async (): Promise<string> => {
-    if (!isAuthenticated) {
-      // Fallback to localStorage generation
-      const lastDeposit =
-        deposits.length > 0 ? Number.parseInt(deposits[deposits.length - 1].depositId.replace("DP", "")) : 0
-      const newId = lastDeposit + 1
-      return `DP${newId.toString().padStart(5, "0")}`
-    }
-
-    try {
-      const depositsQuery = query(collection(db, "deposits"), orderBy("createdAt", "desc"), limit(1))
-      const snapshot = await getDocs(depositsQuery)
-
-      let lastId = 0
-      if (!snapshot.empty) {
-        const lastDepositId = snapshot.docs[0].id
-        if (lastDepositId.startsWith("DP")) {
-          lastId = Number.parseInt(lastDepositId.substring(2))
-        }
-      }
-
-      const newId = lastId + 1
-      return `DP${newId.toString().padStart(5, "0")}`
-    } catch (error) {
-      console.error("Error generating deposit ID:", error)
-      // Fallback
-      return `DP${Date.now().toString()}`
-    }
+  const generateDepositId = (): string => {
+    const lastDeposit =
+      deposits.length > 0 ? Number.parseInt(deposits[deposits.length - 1].depositId.replace("DP", "")) : 0
+    const newId = lastDeposit + 1
+    return `DP${newId.toString().padStart(5, "0")}`
   }
 
-  const generateWithdrawalId = async (): Promise<string> => {
-    if (!isAuthenticated) {
-      // Fallback to localStorage generation
-      const lastWithdrawal =
-        withdrawals.length > 0 ? Number.parseInt(withdrawals[withdrawals.length - 1].withdrawalId.replace("WD", "")) : 0
-      const newId = lastWithdrawal + 1
-      return `WD${newId.toString().padStart(5, "0")}`
-    }
-
-    try {
-      const withdrawalsQuery = query(collection(db, "withdrawals"), orderBy("createdAt", "desc"), limit(1))
-      const snapshot = await getDocs(withdrawalsQuery)
-
-      let lastId = 0
-      if (!snapshot.empty) {
-        const lastWithdrawalId = snapshot.docs[0].id
-        if (lastWithdrawalId.startsWith("WD")) {
-          lastId = Number.parseInt(lastWithdrawalId.substring(2))
-        }
-      }
-
-      const newId = lastId + 1
-      return `WD${newId.toString().padStart(5, "0")}`
-    } catch (error) {
-      console.error("Error generating withdrawal ID:", error)
-      // Fallback
-      return `WD${Date.now().toString()}`
-    }
+  const generateWithdrawalId = (): string => {
+    const lastWithdrawal =
+      withdrawals.length > 0 ? Number.parseInt(withdrawals[withdrawals.length - 1].withdrawalId.replace("WD", "")) : 0
+    const newId = lastWithdrawal + 1
+    return `WD${newId.toString().padStart(5, "0")}`
   }
 
   // Client CRUD operations
@@ -474,7 +401,16 @@ export function ClientProvider({ children }: { children: ReactNode }) {
   // Order CRUD operations
   const addOrder = async (order: Order) => {
     try {
-      const orderId = order.orderId || (await generateOrderId())
+      const orderId = order.orderId || generateOrderId()
+
+      if (!isAuthenticated) {
+        // Fallback to localStorage
+        const newOrder = { ...order, orderId }
+        setOrders((prev) => [...prev, newOrder])
+        localStorage.setItem("orders", JSON.stringify([...orders, newOrder]))
+        return
+      }
+
       await setDoc(doc(db, "orders", orderId), {
         shopId: order.shopId,
         clientName: order.clientName,
@@ -519,12 +455,38 @@ export function ClientProvider({ children }: { children: ReactNode }) {
   // Deposit CRUD operations
   const addDeposit = async (deposit: Deposit) => {
     try {
-      const depositId = deposit.depositId || (await generateDepositId())
+      const depositId = deposit.depositId || generateDepositId()
+
+      // Ensure date is properly formatted
+      let depositDate: Date
+      if (typeof deposit.date === "string") {
+        depositDate = new Date(deposit.date)
+        if (isNaN(depositDate.getTime())) {
+          depositDate = new Date()
+        }
+      } else if (deposit.date instanceof Date) {
+        depositDate = deposit.date
+      } else {
+        depositDate = new Date()
+      }
+
+      if (!isAuthenticated) {
+        // Fallback to localStorage
+        const newDeposit = {
+          ...deposit,
+          depositId,
+          date: depositDate,
+        }
+        setDeposits((prev) => [...prev, newDeposit])
+        localStorage.setItem("deposits", JSON.stringify([...deposits, newDeposit]))
+        return
+      }
+
       await setDoc(doc(db, "deposits", depositId), {
         shopId: deposit.shopId,
         clientName: deposit.clientName,
         agent: deposit.agent,
-        date: deposit.date ? Timestamp.fromDate(new Date(deposit.date)) : Timestamp.fromDate(new Date()),
+        date: Timestamp.fromDate(depositDate),
         amount: deposit.amount,
         paymentMode: deposit.paymentMode,
         createdAt: serverTimestamp(),
@@ -562,12 +524,38 @@ export function ClientProvider({ children }: { children: ReactNode }) {
   // Withdrawal CRUD operations
   const addWithdrawal = async (withdrawal: Withdrawal) => {
     try {
-      const withdrawalId = withdrawal.withdrawalId || (await generateWithdrawalId())
+      const withdrawalId = withdrawal.withdrawalId || generateWithdrawalId()
+
+      // Ensure date is properly formatted
+      let withdrawalDate: Date
+      if (typeof withdrawal.date === "string") {
+        withdrawalDate = new Date(withdrawal.date)
+        if (isNaN(withdrawalDate.getTime())) {
+          withdrawalDate = new Date()
+        }
+      } else if (withdrawal.date instanceof Date) {
+        withdrawalDate = withdrawal.date
+      } else {
+        withdrawalDate = new Date()
+      }
+
+      if (!isAuthenticated) {
+        // Fallback to localStorage
+        const newWithdrawal = {
+          ...withdrawal,
+          withdrawalId,
+          date: withdrawalDate,
+        }
+        setWithdrawals((prev) => [...prev, newWithdrawal])
+        localStorage.setItem("withdrawals", JSON.stringify([...withdrawals, newWithdrawal]))
+        return
+      }
+
       await setDoc(doc(db, "withdrawals", withdrawalId), {
         shopId: withdrawal.shopId,
         clientName: withdrawal.clientName,
         agent: withdrawal.agent,
-        date: withdrawal.date ? Timestamp.fromDate(new Date(withdrawal.date)) : Timestamp.fromDate(new Date()),
+        date: Timestamp.fromDate(withdrawalDate),
         amount: withdrawal.amount,
         paymentMode: withdrawal.paymentMode,
         createdAt: serverTimestamp(),
@@ -637,7 +625,7 @@ export function ClientProvider({ children }: { children: ReactNode }) {
         if (!requestSnapshot.empty) {
           const requestData = requestSnapshot.docs[0].data()
           const newOrder: Order = {
-            orderId: await generateOrderId(),
+            orderId: generateOrderId(),
             shopId: requestData.shopId,
             clientName: requestData.clientName,
             agent: requestData.agent,

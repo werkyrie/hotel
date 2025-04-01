@@ -19,8 +19,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, FileUp, Upload, X, CheckCircle } from "lucide-react"
-import { format, parse } from "date-fns"
+import { AlertCircle, FileUp, Upload, X } from "lucide-react"
+import { format } from "date-fns"
 import { Progress } from "@/components/ui/progress"
 
 interface BulkDepositModalProps {
@@ -73,7 +73,6 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
       setIsProcessing(true)
       setProgress(0)
       setError("")
-      setSuccess(false)
 
       // Parse CSV data
       const lines = csvData.trim().split("\n")
@@ -110,24 +109,17 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
           // Validate shop ID
           const shopId = values[shopIdIndex]
           const client = clients.find((c) => c.shopId === shopId)
+          const clientName = client?.clientName || "Unknown Client"
+          const agent = client?.agent || "Unknown Agent"
 
-          if (!client) {
-            errorCount++
-            continue
-          }
-
-          // Validate and parse date (MM/DD/YYYY format)
-          let depositDate
+          // Validate and parse date
+          let depositDate = values[dateIndex]
           try {
-            // Try to parse MM/DD/YYYY format
-            const dateValue = values[dateIndex]
-            const parsedDate = parse(dateValue, "MM/dd/yyyy", new Date())
-            
+            // Try to parse and format the date
+            const parsedDate = new Date(depositDate)
             if (isNaN(parsedDate.getTime())) {
-              // Fallback to today if parsing fails
               depositDate = format(new Date(), "yyyy-MM-dd")
             } else {
-              // Convert to ISO format for storage
               depositDate = format(parsedDate, "yyyy-MM-dd")
             }
           } catch (e) {
@@ -142,25 +134,40 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
           }
 
           // Validate payment mode
-          const paymentMode = values[paymentModeIndex] as PaymentMode
+          let paymentMode = values[paymentModeIndex] as PaymentMode
           if (!["Crypto", "Online Banking", "Ewallet"].includes(paymentMode)) {
+            // Try to normalize the payment mode
+            const normalizedMode = values[paymentModeIndex].trim().toLowerCase()
+            if (["crypto", "cryptocurrency", "bitcoin", "eth", "btc"].includes(normalizedMode)) {
+              paymentMode = "Crypto"
+            } else if (["online", "online banking", "internet banking"].includes(normalizedMode)) {
+              paymentMode = "Online Banking"
+            } else if (["ewallet", "e-wallet", "digital wallet", "wallet"].includes(normalizedMode)) {
+              paymentMode = "Ewallet"
+            } else {
+              errorCount++
+              continue
+            }
+          }
+
+          try {
+            // Create and add deposit
+            const deposit: Deposit = {
+              depositId: generateDepositId(),
+              shopId,
+              clientName,
+              agent,
+              date: depositDate,
+              amount,
+              paymentMode,
+            }
+
+            await addDeposit(deposit)
+            successCount++
+          } catch (error) {
+            console.error("Error adding deposit:", error)
             errorCount++
-            continue
           }
-
-          // Create and add deposit
-          const deposit: Deposit = {
-            depositId: generateDepositId(),
-            shopId,
-            clientName: client.clientName,
-            agent: client.agent,
-            date: depositDate,
-            amount,
-            paymentMode,
-          }
-
-          addDeposit(deposit)
-          successCount++
         }
 
         // Update progress
@@ -174,7 +181,7 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
 
       setSuccessCount(successCount)
       setErrorCount(errorCount)
-      setSuccess(successCount > 0)
+      setSuccess(true)
       setIsProcessing(false)
 
       if (successCount > 0) {
@@ -193,6 +200,7 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
         }, 2000)
       }
     } catch (error) {
+      console.error("Error processing CSV data:", error)
       setError("Error processing CSV data. Please check the format.")
       setIsProcessing(false)
     }
@@ -207,7 +215,10 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
       <DialogContent className="sm:max-w-[600px] animate-fade-in">
         <DialogHeader>
           <DialogTitle className="text-xl">Bulk Add Deposits</DialogTitle>
-          <DialogDescription>Upload a CSV file or paste CSV data to add multiple deposits at once.</DialogDescription>
+          <DialogDescription>
+            Upload a CSV file or paste CSV data to add multiple deposits at once. Unknown shop IDs will be accepted with
+            placeholder client information.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -227,10 +238,7 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
               </Button>
             </div>
           ) : (
-            <div 
-              className="file-upload-area flex items-center justify-center p-8 border-2 border-dashed rounded-md cursor-pointer hover:bg-muted/30 transition-colors" 
-              onClick={handleClickUpload}
-            >
+            <div className="file-upload-area flex items-center justify-center" onClick={handleClickUpload}>
               <div className="text-center">
                 <FileUp className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
                 <p className="text-sm font-medium mb-1">Click to upload a CSV file</p>
@@ -250,9 +258,19 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
               className="h-[200px] font-mono text-sm form-input"
             />
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">CSV format: shop id,date,amount,payment mode</p>
-              <p className="text-xs text-muted-foreground">Date format must be MM/DD/YYYY (e.g., 03/15/2025)</p>
-              <p className="text-xs text-muted-foreground">Example: SHOP001,03/15/2025,500.00,Crypto</p>
+              <p className="text-xs text-muted-foreground font-medium">CSV Format Instructions:</p>
+              <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-1">
+                <li>
+                  First row must be the header: <span className="font-mono">shop id,date,amount,payment mode</span>
+                </li>
+                <li>Shop ID: Any valid shop ID (unknown IDs will be accepted)</li>
+                <li>Date: Any date format (MM/DD/YYYY, YYYY-MM-DD, etc.)</li>
+                <li>Amount: Numeric value greater than 0</li>
+                <li>Payment Mode: Crypto, Online Banking, or Ewallet</li>
+              </ul>
+              <p className="text-xs text-muted-foreground mt-2">
+                Example: <span className="font-mono">4013785,2023-01-01,200.00,Ewallet</span>
+              </p>
             </div>
           </div>
 
@@ -267,17 +285,17 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
           )}
 
           {error && (
-            <Alert variant="destructive" className="border-red-500 bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
+            <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Import Failed</AlertTitle>
+              <AlertTitle>Error</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
           {success && (
             <Alert className="bg-green-50 border-green-500 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
-              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <AlertTitle>Import Successful</AlertTitle>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Success</AlertTitle>
               <AlertDescription>
                 Successfully imported {successCount} deposits.
                 {errorCount > 0 && ` ${errorCount} deposits had errors and were skipped.`}
@@ -290,11 +308,7 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
           <Button variant="outline" onClick={onClose} disabled={isProcessing}>
             Cancel
           </Button>
-          <Button 
-            onClick={handleImport} 
-            disabled={isProcessing || !csvData.trim()} 
-            className="btn-primary"
-          >
+          <Button onClick={handleImport} disabled={isProcessing || !csvData.trim()} className="btn-primary">
             <Upload className="mr-2 h-4 w-4" />
             {isProcessing ? "Importing..." : "Import Deposits"}
           </Button>
@@ -303,3 +317,4 @@ export default function BulkDepositModal({ isOpen, onClose }: BulkDepositModalPr
     </Dialog>
   )
 }
+

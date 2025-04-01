@@ -109,11 +109,8 @@ export default function BulkWithdrawalModal({ isOpen, onClose }: BulkWithdrawalM
           // Validate shop ID
           const shopId = values[shopIdIndex]
           const client = clients.find((c) => c.shopId === shopId)
-
-          if (!client) {
-            errorCount++
-            continue
-          }
+          const clientName = client?.clientName || "Unknown Client"
+          const agent = client?.agent || "Unknown Agent"
 
           // Validate and parse date
           let withdrawalDate = values[dateIndex]
@@ -137,18 +134,28 @@ export default function BulkWithdrawalModal({ isOpen, onClose }: BulkWithdrawalM
           }
 
           // Validate payment mode
-          const paymentMode = values[paymentModeIndex] as PaymentMode
+          let paymentMode = values[paymentModeIndex] as PaymentMode
           if (!["Crypto", "Online Banking", "Ewallet"].includes(paymentMode)) {
-            errorCount++
-            continue
+            // Try to normalize the payment mode
+            const normalizedMode = values[paymentModeIndex].trim().toLowerCase()
+            if (["crypto", "cryptocurrency", "bitcoin", "eth", "btc"].includes(normalizedMode)) {
+              paymentMode = "Crypto"
+            } else if (["online", "online banking", "internet banking"].includes(normalizedMode)) {
+              paymentMode = "Online Banking"
+            } else if (["ewallet", "e-wallet", "digital wallet", "wallet"].includes(normalizedMode)) {
+              paymentMode = "Ewallet"
+            } else {
+              errorCount++
+              continue
+            }
           }
 
           // Create and add withdrawal
           const withdrawal: Withdrawal = {
             withdrawalId: generateWithdrawalId(),
             shopId,
-            clientName: client.clientName,
-            agent: client.agent,
+            clientName,
+            agent,
             date: withdrawalDate,
             amount,
             paymentMode,
@@ -203,7 +210,8 @@ export default function BulkWithdrawalModal({ isOpen, onClose }: BulkWithdrawalM
         <DialogHeader>
           <DialogTitle className="text-xl">Bulk Add Withdrawals</DialogTitle>
           <DialogDescription>
-            Upload a CSV file or paste CSV data to add multiple withdrawals at once.
+            Upload a CSV file or paste CSV data to add multiple withdrawals at once. Unknown shop IDs will be accepted
+            with placeholder client information.
           </DialogDescription>
         </DialogHeader>
 
@@ -244,8 +252,19 @@ export default function BulkWithdrawalModal({ isOpen, onClose }: BulkWithdrawalM
               className="h-[200px] font-mono text-sm form-input"
             />
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">CSV format: shop id,date,amount,payment mode</p>
-              <p className="text-xs text-muted-foreground">Example: SHOP001,2023-01-01,200.00,Ewallet</p>
+              <p className="text-xs text-muted-foreground font-medium">CSV Format Instructions:</p>
+              <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-1">
+                <li>
+                  First row must be the header: <span className="font-mono">shop id,date,amount,payment mode</span>
+                </li>
+                <li>Shop ID: Any valid shop ID (unknown IDs will be accepted)</li>
+                <li>Date: Any date format (MM/DD/YYYY, YYYY-MM-DD, etc.)</li>
+                <li>Amount: Numeric value greater than 0</li>
+                <li>Payment Mode: Crypto, Online Banking, or Ewallet</li>
+              </ul>
+              <p className="text-xs text-muted-foreground mt-2">
+                Example: <span className="font-mono">4013785,2023-01-01,200.00,Ewallet</span>
+              </p>
             </div>
           </div>
 

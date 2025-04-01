@@ -10,24 +10,27 @@ import { ModeToggle } from "./mode-toggle"
 import NotificationCenter from "./notification/notification-center"
 import { cn } from "@/lib/utils"
 import {
-  Home,
-  Users,
-  ShoppingBag,
-  Wallet,
-  ArrowDownCircle,
-  Settings,
+  HomeIcon,
+  Users2,
+  ShoppingCart,
+  Wallet2,
+  ArrowDownToLine,
+  Settings2,
   LogOut,
   User,
-  BarChart3,
-  Shield,
+  BarChart4,
+  ShieldCheck,
   Menu,
-  FileText,
+  ClipboardList,
   X,
+  HotelIcon,
+  ChevronRight
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import OfflineDetector from "./offline-detector"
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet"
+import { motion } from "framer-motion"
 
 interface SidebarProps {
   activeTab: string
@@ -96,7 +99,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     if (isAdmin) {
       return (
         <AvatarFallback className="bg-primary text-primary-foreground">
-          <Shield className="h-5 w-5" />
+          <ShieldCheck className="h-5 w-5" />
         </AvatarFallback>
       )
     } else if (isViewer) {
@@ -116,9 +119,12 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   if (isMobile) {
     return (
       <>
-        <div className="fixed top-0 left-0 z-40 flex items-center h-16 px-4 bg-background border-b">
+        <div className="fixed top-0 left-0 z-40 flex items-center h-16 px-4 bg-background border-b backdrop-blur-sm bg-opacity-90">
           <div className="flex items-center">
-            <span className="font-bold text-primary text-xl">CMS</span>
+            <span className="font-bold text-primary text-xl flex items-center gap-2">
+              <HotelIcon className="h-6 w-6" />
+              <span>Team Hotel</span>
+            </span>
           </div>
 
           <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
@@ -131,7 +137,10 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
               <div className="flex flex-col h-full">
                 {/* Header with close button */}
                 <div className="flex items-center justify-between p-4 border-b">
-                  <div className="font-bold text-primary text-xl">CMS</div>
+                  <div className="font-bold text-primary text-xl flex items-center gap-2">
+                    <HotelIcon className="h-6 w-6" />
+                    <span>Team Hotel</span>
+                  </div>
                   <SheetClose asChild>
                     <Button variant="ghost" size="icon" aria-label="Close menu">
                       <X className="h-5 w-5" />
@@ -140,8 +149,10 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                 </div>
 
                 {/* User info */}
-                <div className="flex items-center p-4 border-b">
-                  <Avatar className="h-10 w-10">{getAvatarContent()}</Avatar>
+                <div className="flex items-center p-4 border-b bg-muted/50">
+                  <Avatar className="h-10 w-10 ring-2 ring-primary ring-offset-2 ring-offset-background">
+                    {getAvatarContent()}
+                  </Avatar>
                   <div className="ml-3">
                     <p className="font-medium">{user?.username}</p>
                     <p className="text-xs text-muted-foreground">{user?.role}</p>
@@ -152,51 +163,55 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                 <nav className="flex-1 overflow-y-auto py-4">
                   <ul className="space-y-1 px-2">
                     <MobileNavItem
-                      icon={<Home className="h-5 w-5" />}
+                      icon={<HomeIcon className="h-5 w-5" />}
                       label="Dashboard"
                       active={activeTab === "dashboard"}
                       onClick={() => navigateTo("dashboard")}
                     />
                     <MobileNavItem
-                      icon={<Users className="h-5 w-5" />}
+                      icon={<Users2 className="h-5 w-5" />}
                       label="Clients"
                       active={activeTab === "clients"}
                       onClick={() => navigateTo("clients")}
                     />
                     <MobileNavItem
-                      icon={<ShoppingBag className="h-5 w-5" />}
+                      icon={<ShoppingCart className="h-5 w-5" />}
                       label="Orders"
                       active={activeTab === "orders"}
                       onClick={() => navigateTo("orders")}
                     />
                     <MobileNavItem
-                      icon={<FileText className="h-5 w-5" />}
+                      icon={<ClipboardList className="h-5 w-5" />}
                       label="Order Requests"
                       active={activeTab === "order-requests"}
                       onClick={() => navigateTo("order-requests")}
-                      badge={<span className="bg-gray-700 text-white text-xs px-1 rounded">New</span>}
+                      badge={
+                        <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full font-bold">
+                          New
+                        </span>
+                      }
                     />
                     <MobileNavItem
-                      icon={<Wallet className="h-5 w-5" />}
+                      icon={<Wallet2 className="h-5 w-5" />}
                       label="Deposits"
                       active={activeTab === "deposits"}
                       onClick={() => navigateTo("deposits")}
                     />
                     <MobileNavItem
-                      icon={<ArrowDownCircle className="h-5 w-5" />}
+                      icon={<ArrowDownToLine className="h-5 w-5" />}
                       label="Withdrawals"
                       active={activeTab === "withdrawals"}
                       onClick={() => navigateTo("withdrawals")}
                     />
                     <MobileNavItem
-                      icon={<BarChart3 className="h-5 w-5" />}
+                      icon={<BarChart4 className="h-5 w-5" />}
                       label="Team Performance"
                       active={activeTab === "team"}
                       onClick={() => navigateTo("team")}
                     />
                     {!isViewer && (
                       <MobileNavItem
-                        icon={<Settings className="h-5 w-5" />}
+                        icon={<Settings2 className="h-5 w-5" />}
                         label="Settings"
                         active={activeTab === "settings"}
                         onClick={() => navigateTo("settings")}
@@ -208,8 +223,8 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                 {/* Footer */}
                 <div className="p-4 border-t">
                   <Button
-                    variant="default"
-                    className="w-full justify-start bg-gray-800 hover:bg-gray-700 text-white"
+                    variant="destructive"
+                    className="w-full justify-start hover:scale-105 transition-transform"
                     onClick={handleLogout}
                   >
                     <LogOut className="h-5 w-5 mr-2" />
@@ -229,17 +244,20 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
 
   // Desktop sidebar - always expanded
   return (
-    <div className="h-screen fixed left-0 top-0 z-40 flex flex-col bg-background border-r w-64">
+    <div className="h-screen fixed left-0 top-0 z-40 flex flex-col bg-background border-r w-64 shadow-md">
       {/* Logo */}
       <div className="flex items-center justify-between p-4 border-b h-14">
-        <div className="flex items-center">
-          <span className="font-bold text-primary text-xl">Client Management</span>
+        <div className="flex items-center gap-2">
+          <HotelIcon className="h-6 w-6 text-primary" />
+          <span className="font-bold text-primary text-xl">Team Hotel</span>
         </div>
       </div>
 
       {/* User info */}
-      <div className="flex items-center p-4 border-b">
-        <Avatar className="h-10 w-10">{getAvatarContent()}</Avatar>
+      <div className="flex items-center p-4 border-b bg-muted/30">
+        <Avatar className="h-10 w-10 ring-2 ring-primary ring-offset-2 ring-offset-background">
+          {getAvatarContent()}
+        </Avatar>
         <div className="ml-3">
           <p className="font-medium">{user?.username}</p>
           <p className="text-xs text-muted-foreground">{user?.role}</p>
@@ -251,50 +269,54 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         <TooltipProvider>
           <ul className="space-y-1 px-2">
             <NavItem
-              icon={<Home className="h-5 w-5" />}
+              icon={<HomeIcon className="h-5 w-5" />}
               label="Dashboard"
               active={activeTab === "dashboard"}
               collapsed={false}
               onClick={() => navigateTo("dashboard")}
             />
             <NavItem
-              icon={<Users className="h-5 w-5" />}
+              icon={<Users2 className="h-5 w-5" />}
               label="Clients"
               active={activeTab === "clients"}
               collapsed={false}
               onClick={() => navigateTo("clients")}
             />
             <NavItem
-              icon={<ShoppingBag className="h-5 w-5" />}
+              icon={<ShoppingCart className="h-5 w-5" />}
               label="Orders"
               active={activeTab === "orders"}
               collapsed={false}
               onClick={() => navigateTo("orders")}
             />
             <NavItem
-              icon={<FileText className="h-5 w-5" />}
+              icon={<ClipboardList className="h-5 w-5" />}
               label="Order Requests"
               active={activeTab === "order-requests"}
               collapsed={false}
               onClick={() => navigateTo("order-requests")}
-              badge={<span className="bg-gray-700 text-white text-xs px-1 rounded">New</span>}
+              badge={
+                <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full font-bold">
+                  New
+                </span>
+              }
             />
             <NavItem
-              icon={<Wallet className="h-5 w-5" />}
+              icon={<Wallet2 className="h-5 w-5" />}
               label="Deposits"
               active={activeTab === "deposits"}
               collapsed={false}
               onClick={() => navigateTo("deposits")}
             />
             <NavItem
-              icon={<ArrowDownCircle className="h-5 w-5" />}
+              icon={<ArrowDownToLine className="h-5 w-5" />}
               label="Withdrawals"
               active={activeTab === "withdrawals"}
               collapsed={false}
               onClick={() => navigateTo("withdrawals")}
             />
             <NavItem
-              icon={<BarChart3 className="h-5 w-5" />}
+              icon={<BarChart4 className="h-5 w-5" />}
               label="Team Performance"
               active={activeTab === "team"}
               collapsed={false}
@@ -302,7 +324,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             />
             {!isViewer && (
               <NavItem
-                icon={<Settings className="h-5 w-5" />}
+                icon={<Settings2 className="h-5 w-5" />}
                 label="Settings"
                 active={activeTab === "settings"}
                 collapsed={false}
@@ -314,14 +336,19 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t">
+      <div className="p-4 border-t bg-muted/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <OfflineDetector />
             <NotificationCenter />
           </div>
           <ModeToggle />
-          <Button variant="ghost" size="default" onClick={handleLogout}>
+          <Button 
+            variant="ghost" 
+            size="default" 
+            onClick={handleLogout}
+            className="text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+          >
             <LogOut className="h-5 w-5 mr-2" />
             Logout
           </Button>
@@ -346,24 +373,27 @@ function NavItem({ icon, label, active, collapsed, onClick, badge }: NavItemProp
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant={active ? "default" : "ghost"}
-              className={cn(
-                "w-full justify-start transition-all duration-200",
-                active && "bg-gray-800 text-white",
-                collapsed && "justify-center p-2",
-              )}
-              onClick={onClick}
-            >
-              {icon}
-              {!collapsed && (
-                <div className="ml-3 flex items-center justify-between w-full">
-                  <span>{label}</span>
-                  {badge && !collapsed && badge}
-                </div>
-              )}
-              {collapsed && badge && <span className="absolute -top-1 -right-1">{badge}</span>}
-            </Button>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button
+                variant={active ? "default" : "ghost"}
+                className={cn(
+                  "w-full justify-start transition-all duration-200",
+                  active && "bg-primary text-primary-foreground",
+                  collapsed && "justify-center p-2",
+                )}
+                onClick={onClick}
+              >
+                {icon}
+                {!collapsed && (
+                  <div className="ml-3 flex items-center justify-between w-full">
+                    <span>{label}</span>
+                    {badge && !collapsed && badge}
+                    {!badge && <ChevronRight className={cn("h-4 w-4 opacity-0", active && "opacity-70")} />}
+                  </div>
+                )}
+                {collapsed && badge && <span className="absolute -top-1 -right-1">{badge}</span>}
+              </Button>
+            </motion.div>
           </TooltipTrigger>
           {collapsed && <TooltipContent side="right">{label}</TooltipContent>}
         </Tooltip>
@@ -383,18 +413,25 @@ interface MobileNavItemProps {
 function MobileNavItem({ icon, label, active, onClick, badge }: MobileNavItemProps) {
   return (
     <li>
-      <Button
-        variant={active ? "default" : "ghost"}
-        className={cn("w-full justify-start", active && "bg-gray-800 text-white")}
-        onClick={onClick}
-      >
-        {icon}
-        <div className="ml-3 flex items-center justify-between w-full">
-          <span>{label}</span>
-          {badge && badge}
-        </div>
-      </Button>
+      <motion.div whileHover={{ x: 4 }} whileTap={{ scale: 0.98 }}>
+        <Button
+          variant={active ? "default" : "ghost"}
+          className={cn(
+            "w-full justify-start rounded-lg", 
+            active && "bg-primary text-primary-foreground"
+          )}
+          onClick={onClick}
+        >
+          {icon}
+          <div className="ml-3 flex items-center justify-between w-full">
+            <span>{label}</span>
+            <div className="flex items-center">
+              {badge && badge}
+              {!badge && <ChevronRight className={cn("h-4 w-4 opacity-0", active && "opacity-70")} />}
+            </div>
+          </div>
+        </Button>
+      </motion.div>
     </li>
   )
 }
-
